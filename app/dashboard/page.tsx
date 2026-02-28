@@ -35,8 +35,10 @@ const VAULT_APY: Record<string, string> = {
 
 function fmtAssets(assets: bigint, decimals: number, symbol: string): string {
   const val = parseFloat(formatUnits(assets, decimals))
-  const precision = decimals === 6 ? 2 : decimals === 8 ? 6 : 4
-  return `${val.toFixed(precision)} ${symbol}`
+  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M ${symbol}`
+  if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K ${symbol}`
+  const precision = 2
+  return `${val.toLocaleString('en-US', { maximumFractionDigits: precision })} ${symbol}`
 }
 
 // ── StatCard ──────────────────────────────────────────────────────────────────

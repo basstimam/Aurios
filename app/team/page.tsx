@@ -79,13 +79,20 @@ export default function TeamPage() {
             variants={fadeUp}
             className="flex flex-col items-center justify-center py-32 gap-4"
           >
-            <div className="w-14 h-14 rounded-full bg-bg-card border border-border-default flex items-center justify-center">
-              <span className="font-space-grotesk text-text-secondary font-bold text-lg">T</span>
+            <div className="w-14 h-14 rounded-full bg-bg-card border border-border-default flex items-center justify-center text-text-secondary">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <h2 className="font-space-grotesk text-text-primary text-xl font-bold">Team Management</h2>
             <p className="text-text-secondary font-inter text-sm text-center max-w-xs">
               Connect your wallet to view and manage your DAO treasury team.
             </p>
+            <button
+              onClick={() => document.querySelector<HTMLButtonElement>('[data-rk] button'  )?.click()}
+              className="mt-2 rounded-lg px-5 py-2.5 font-inter text-sm font-semibold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--accent-amber)', color: '#000000' }}
+            >
+              Connect Wallet
+            </button>
           </motion.div>
         </motion.div>
       </AppLayout>
