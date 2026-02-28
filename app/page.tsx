@@ -289,9 +289,13 @@ function HeroSection() {
               Treasury Dashboard
             </span>
             <span
-              className="rounded-full px-2.5 py-0.5 font-roboto-mono text-xs font-medium"
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-roboto-mono text-xs font-medium"
               style={{ backgroundColor: 'rgba(22,163,74,0.12)', color: 'var(--accent-green)' }}
             >
+              <span className="relative flex w-1.5 h-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: 'var(--accent-green)' }} />
+                <span className="relative inline-flex rounded-full w-1.5 h-1.5" style={{ backgroundColor: 'var(--accent-green)' }} />
+              </span>
               Active
             </span>
           </div>
@@ -555,9 +559,9 @@ function FeaturesSection() {
 /* ── VaultSection ───────────────────────────────────────────────────── */
 function VaultSection() {
   const vaults = [
-    { name: 'yoUSD Savings', asset: 'yoUSD', apy: '12.4%', risk: 'Low', status: 'Active' },
-    { name: 'yoETH Growth', asset: 'yoETH', apy: '18.2%', risk: 'Med', status: 'Active' },
-    { name: 'yoBTC Reserve', asset: 'yoBTC', apy: '9.8%', risk: 'Low', status: 'Active' },
+    { name: 'yoUSD Savings', asset: 'yoUSD', apy: '12.4%', risk: 'Low', status: 'Active', accent: '#F59E0B' },
+    { name: 'yoETH Growth', asset: 'yoETH', apy: '18.2%', risk: 'Med', status: 'Active', accent: '#3B82F6' },
+    { name: 'yoBTC Reserve', asset: 'yoBTC', apy: '9.8%', risk: 'Low', status: 'Active', accent: '#22C55E' },
   ]
 
   return (
@@ -586,56 +590,66 @@ function VaultSection() {
             <motion.div
               key={v.name}
               variants={fadeLeft}
-              className="rounded-xl border border-border-subtle bg-bg-card overflow-hidden"
+              whileHover={{ x: 3 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className="rounded-xl border border-border-subtle bg-bg-card overflow-hidden hover:border-border-default hover:shadow-card transition-all"
             >
-              <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-0.5 sm:w-44">
-                  <span className="font-space-grotesk text-sm font-semibold text-text-primary">
-                    {v.name}
-                  </span>
-                  <span className="font-roboto-mono text-xs text-text-tertiary">{v.asset}</span>
-                </div>
-
-                <div className="flex items-center gap-8">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-inter text-xs text-text-tertiary">APY</span>
-                    <span className="font-roboto-mono text-lg font-medium text-accent-amber">
-                      {v.apy}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-inter text-xs text-text-tertiary">Risk</span>
-                    <span
-                      className="rounded px-2 py-0.5 font-inter text-xs font-medium"
-                      style={{
-                        backgroundColor:
-                          v.risk === 'Low' ? 'rgba(22,163,74,0.1)' : 'rgba(245,158,11,0.1)',
-                        color: v.risk === 'Low' ? 'var(--accent-green)' : 'var(--accent-amber)',
-                      }}
+              <div className="flex">
+                <div className="w-1 flex-shrink-0" style={{ backgroundColor: v.accent }} />
+                <div className="flex flex-col gap-4 px-6 py-5 flex-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3 sm:w-48">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold font-space-grotesk flex-shrink-0"
+                      style={{ backgroundColor: v.accent + '22', color: v.accent }}
                     >
-                      {v.risk}
-                    </span>
+                      {v.asset[0]}
+                    </div>
+                    <div>
+                      <span className="font-space-grotesk text-sm font-semibold text-text-primary block">
+                        {v.name}
+                      </span>
+                      <span className="font-roboto-mono text-xs text-text-tertiary">{v.asset}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-inter text-xs text-text-tertiary">Status</span>
-                    <span
-                      className="rounded-full px-2.5 py-0.5 font-inter text-xs"
-                      style={{
-                        backgroundColor: 'rgba(22,163,74,0.1)',
-                        color: 'var(--accent-green)',
-                      }}
-                    >
-                      {v.status}
-                    </span>
-                  </div>
-                </div>
 
-                <Link
-                  href="/deposit/choose"
-                  className="rounded-lg border border-border-default px-5 py-2 font-inter text-xs font-medium text-text-primary hover:border-accent-amber hover:text-accent-amber transition-colors text-center sm:text-left"
-                >
-                  Deposit
-                </Link>
+                  <div className="flex items-center gap-8">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">APY</span>
+                      <span className="font-roboto-mono text-lg font-semibold text-accent-amber">
+                        {v.apy}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">Risk</span>
+                      <span
+                        className="rounded px-2 py-0.5 font-inter text-xs font-medium"
+                        style={{
+                          backgroundColor: v.risk === 'Low' ? 'rgba(22,163,74,0.1)' : 'rgba(245,158,11,0.1)',
+                          color: v.risk === 'Low' ? 'var(--accent-green)' : 'var(--accent-amber)',
+                        }}
+                      >
+                        {v.risk}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">Status</span>
+                      <span
+                        className="flex items-center gap-1 rounded-full px-2 py-0.5 font-inter text-xs"
+                        style={{ backgroundColor: 'rgba(22,163,74,0.1)', color: 'var(--accent-green)' }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--accent-green)' }} />
+                        {v.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Link
+                    href="/deposit/choose"
+                    className="rounded-lg border border-border-default px-5 py-2 font-inter text-xs font-medium text-text-primary hover:border-accent-amber hover:text-accent-amber transition-colors text-center sm:text-left"
+                  >
+                    Deposit
+                  </Link>
+                </div>
               </div>
             </motion.div>
           ))}

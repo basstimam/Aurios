@@ -57,10 +57,12 @@ function StatCard({
     <motion.div
       variants={fadeUp}
       whileHover={{ y: -2 }}
-      className="bg-bg-card border border-border-default rounded-xl p-6"
+      className="relative bg-bg-card border border-border-default rounded-xl p-6 overflow-hidden shadow-card hover:shadow-card-hover transition-shadow"
     >
-      <p className="text-text-secondary text-sm font-inter mb-2">{title}</p>
-      <p className="font-roboto-mono text-text-primary text-3xl font-bold mb-1">{value}</p>
+      {/* Amber accent left bar */}
+      <div className="absolute left-0 inset-y-0 w-0.5 rounded-l-xl" style={{ backgroundColor: 'var(--accent-amber)' }} />
+      <p className="text-text-secondary text-xs font-inter uppercase tracking-wider mb-3">{title}</p>
+      <p className="font-roboto-mono text-text-primary text-3xl font-bold mb-1.5">{value}</p>
       <p className="text-text-tertiary text-xs font-inter">{subtitle}</p>
     </motion.div>
   )

@@ -70,3 +70,23 @@ body {
   font-family: var(--font-roboto-mono), 'Courier New', monospace;
   font-feature-settings: 'tnum';
 }
+
+/* Smooth backdrop blur support */
+@supports (backdrop-filter: blur(12px)) {
+  .backdrop-blur-md {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* Number focus — tabular nums on all mono elements */
+.font-roboto-mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Selection color */
+::selection {
+  background-color: rgba(217, 119, 6, 0.2);
+  color: var(--text-primary);
+}

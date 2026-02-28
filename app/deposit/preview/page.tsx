@@ -116,7 +116,7 @@ function PreviewContent() {
                   A
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-accent-green flex items-center justify-center">
-                  <span className="text-white text-[8px]">✓</span>
+                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="2 6 5 9 10 3"/></svg>
                 </div>
               </div>
             </div>
@@ -127,7 +127,7 @@ function PreviewContent() {
                   S
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-accent-green flex items-center justify-center">
-                  <span className="text-white text-[8px]">✓</span>
+                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="2 6 5 9 10 3"/></svg>
                 </div>
               </div>
             </div>
@@ -138,7 +138,7 @@ function PreviewContent() {
                   M
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-border-strong flex items-center justify-center">
-                  <span className="text-white text-[8px]">·</span>
+                  <svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor" className="text-white/60" aria-hidden><circle cx="3" cy="3" r="2"/></svg>
                 </div>
               </div>
             </div>
