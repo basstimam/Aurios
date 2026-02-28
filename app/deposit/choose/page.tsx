@@ -2,7 +2,26 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion, type Variants } from 'framer-motion'
 import { AppLayout, StepIndicator } from '@/components'
+
+// ── Animation Variants ────────────────────────────────────────────────────────
+
+const pageVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.3 } },
+}
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+}
+
+const stagger: Variants = {
+  visible: { transition: { staggerChildren: 0.07 } },
+}
+
+// ── Data ──────────────────────────────────────────────────────────────────────
 
 const VAULTS_DISPLAY = [
   {
@@ -40,26 +59,42 @@ export default function ChooseVaultPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-[700px] mx-auto px-6 py-10">
+      <motion.div
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        className="max-w-[700px] mx-auto px-6 py-10"
+      >
         <StepIndicator currentStep={1} />
 
-        <h1 className="font-space-grotesk text-[#F4EFE8] text-2xl font-bold mt-8 mb-2">
+        <motion.h1
+          variants={fadeUp}
+          className="font-space-grotesk text-text-primary text-2xl font-bold mt-8 mb-2"
+        >
           Choose a Vault
-        </h1>
-        <p className="text-[#9B9081] font-inter text-sm mb-8">
+        </motion.h1>
+        <motion.p variants={fadeUp} className="text-text-secondary font-inter text-sm mb-8">
           Select where you&apos;d like to deposit your treasury funds
-        </p>
+        </motion.p>
 
         {/* 2x2 grid */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-2 gap-4 mb-8"
+        >
           {VAULTS_DISPLAY.map((vault) => (
-            <button
+            <motion.button
               key={vault.key}
+              variants={fadeUp}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setSelected(vault.key)}
               className={`text-left p-5 rounded-xl border transition-colors ${
                 selected === vault.key
-                  ? 'border-[#F59E0B] bg-[#1A1500]'
-                  : 'border-[#252838] bg-[#0D0E15] hover:border-[#3D3D4D]'
+                  ? 'border-accent-amber bg-accent-amber/5'
+                  : 'border-border-default bg-bg-card hover:border-border-strong'
               }`}
             >
               {/* Vault icon circle */}
@@ -69,52 +104,56 @@ export default function ChooseVaultPage() {
               >
                 {vault.asset[0]}
               </div>
-              <p className="font-space-grotesk text-[#F4EFE8] font-semibold mb-1">
+              <p className="font-space-grotesk text-text-primary font-semibold mb-1">
                 {vault.name}
               </p>
-              <p className="text-[#9B9081] text-xs font-inter mb-3">
+              <p className="text-text-secondary text-xs font-inter mb-3">
                 {vault.description}
               </p>
               <div className="flex gap-4">
-                <span className="text-[#F59E0B] font-roboto-mono text-sm font-bold">
+                <span className="text-accent-amber font-roboto-mono text-sm font-bold">
                   {vault.apy} APY
                 </span>
-                <span className="text-[#6B625A] font-roboto-mono text-sm">
+                <span className="text-text-tertiary font-roboto-mono text-sm">
                   {vault.tvl} TVL
                 </span>
               </div>
-            </button>
+            </motion.button>
           ))}
 
           {/* Coming Soon card */}
-          <div className="p-5 rounded-xl border border-[#1C1D27] bg-[#0A0B10] opacity-50 cursor-not-allowed">
-            <div className="w-10 h-10 rounded-full bg-[#252838] flex items-center justify-center mb-3">
-              <span className="text-[#6B625A] text-lg">+</span>
+          <motion.div
+            variants={fadeUp}
+            className="p-5 rounded-xl border border-border-subtle bg-bg-card opacity-50 cursor-not-allowed"
+          >
+            <div className="w-10 h-10 rounded-full bg-border-default flex items-center justify-center mb-3">
+              <span className="text-text-tertiary text-lg">+</span>
             </div>
-            <p className="font-space-grotesk text-[#6B625A] font-semibold mb-1">
+            <p className="font-space-grotesk text-text-tertiary font-semibold mb-1">
               More Coming Soon
             </p>
-            <p className="text-[#4A4A5A] text-xs font-inter">
+            <p className="text-text-tertiary text-xs font-inter opacity-60">
               Additional vaults in development
             </p>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Continue button */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.97 }}
           onClick={() =>
             selected && router.push('/deposit/amount?vault=' + selected)
           }
           disabled={!selected}
           className={`w-full py-3 rounded-lg font-semibold font-inter transition-colors ${
             selected
-              ? 'bg-[#F59E0B] text-black hover:bg-[#D97706]'
-              : 'bg-[#F59E0B] text-black opacity-40 cursor-not-allowed'
+              ? 'bg-accent-amber text-black hover:bg-accent-amber-dark'
+              : 'bg-accent-amber text-black opacity-40 cursor-not-allowed'
           }`}
         >
           Continue →
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
     </AppLayout>
   )
 }

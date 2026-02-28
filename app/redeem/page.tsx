@@ -2,10 +2,27 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { motion, type Variants } from 'framer-motion'
 import { AppLayout, AmountInput } from '@/components'
 import { VAULTS } from '@/lib/contracts/vaults'
 import type { VaultKey } from '@/lib/contracts/vaults'
 import { useRedeem } from '@/hooks/useRedeem'
+
+// ── Animation Variants ────────────────────────────────────────────────────────
+
+const pageVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.3 } },
+}
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+}
+
+const stagger: Variants = {
+  visible: { transition: { staggerChildren: 0.08 } },
+}
 
 // Mock position data per vault
 const MOCK_POSITIONS: Record<string, { shares: string; value: string; yield: string }> = {
@@ -50,37 +67,48 @@ function RedeemContent() {
 
   return (
     <AppLayout>
-      <div className="max-w-[640px] mx-auto px-6 py-10">
-        <h1 className="font-space-grotesk text-[#F4EFE8] text-2xl font-bold mb-6">
+      <motion.div
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        className="max-w-[640px] mx-auto px-6 py-10"
+      >
+        <motion.h1
+          variants={fadeUp}
+          className="font-space-grotesk text-text-primary text-2xl font-bold mb-6"
+        >
           Redeem from {vault.name}
-        </h1>
+        </motion.h1>
 
         {/* Current Position Card */}
-        <div className="bg-[#0D0E15] border border-[#252838] rounded-xl p-5 mb-6">
-          <h3 className="text-[#9B9081] text-xs font-inter uppercase tracking-wider mb-3">
+        <motion.div
+          variants={fadeUp}
+          className="bg-bg-card border border-border-default rounded-xl p-5 mb-6"
+        >
+          <h3 className="text-text-secondary text-xs font-inter uppercase tracking-wider mb-3">
             Your Position
           </h3>
           <div className="flex justify-between items-start">
             <div>
-              <p className="font-roboto-mono text-[#F4EFE8] text-2xl font-bold">
+              <p className="font-roboto-mono text-text-primary text-2xl font-bold">
                 {position.shares} {vault.name}
               </p>
-              <p className="text-[#9B9081] text-sm font-inter mt-1">
+              <p className="text-text-secondary text-sm font-inter mt-1">
                 Worth: ~{position.value} {vault.assetSymbol}
               </p>
             </div>
             <div className="text-right">
-              <p className="font-roboto-mono text-[#22C55E] text-sm font-bold">
+              <p className="font-roboto-mono text-accent-green text-sm font-bold">
                 {position.yield} {vault.assetSymbol}
               </p>
-              <p className="text-[#6B625A] text-xs font-inter">Yield earned</p>
+              <p className="text-text-tertiary text-xs font-inter">Yield earned</p>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Amount Input */}
-        <div className="mb-4">
-          <label className="text-[#9B9081] text-sm font-inter mb-2 block">
+        <motion.div variants={fadeUp} className="mb-4">
+          <label className="text-text-secondary text-sm font-inter mb-2 block">
             Shares to redeem
           </label>
           <AmountInput
@@ -96,59 +124,70 @@ function RedeemContent() {
                 : undefined
             }
           />
-        </div>
+        </motion.div>
 
         {/* Info Card */}
-        <div className="bg-[#0D0E15] border border-[#252838] rounded-xl p-5 mb-6 space-y-3">
-          <div className="flex justify-between">
-            <span className="text-[#9B9081] text-sm font-inter">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate="visible"
+          className="bg-bg-card border border-border-default rounded-xl p-5 mb-6 space-y-3"
+        >
+          <motion.div variants={fadeUp} className="flex justify-between">
+            <span className="text-text-secondary text-sm font-inter">
               You will receive
             </span>
-            <span className="font-roboto-mono text-[#F4EFE8] text-sm">
+            <span className="font-roboto-mono text-text-primary text-sm">
               {estimatedAssets} {vault.assetSymbol}
             </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#9B9081] text-sm font-inter">
+          </motion.div>
+          <motion.div variants={fadeUp} className="flex justify-between">
+            <span className="text-text-secondary text-sm font-inter">
               Exchange Rate
             </span>
-            <span className="font-roboto-mono text-[#F4EFE8] text-sm">
+            <span className="font-roboto-mono text-text-primary text-sm">
               1 {vault.name} ≈ 1.02 {vault.assetSymbol}
             </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#9B9081] text-sm font-inter">
+          </motion.div>
+          <motion.div variants={fadeUp} className="flex justify-between">
+            <span className="text-text-secondary text-sm font-inter">
               Network Fee
             </span>
-            <span className="font-roboto-mono text-[#F4EFE8] text-sm">
+            <span className="font-roboto-mono text-text-primary text-sm">
               {'< $0.01'}
             </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#9B9081] text-sm font-inter">
+          </motion.div>
+          <motion.div variants={fadeUp} className="flex justify-between">
+            <span className="text-text-secondary text-sm font-inter">
               Processing
             </span>
-            <span className="font-roboto-mono text-[#9B9081] text-sm">
+            <span className="font-roboto-mono text-text-secondary text-sm">
               Instant or up to 48h
             </span>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Error message */}
         {redeemError && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4"
+          >
             <p className="text-red-400 text-sm font-inter">{redeemError}</p>
-          </div>
+          </motion.div>
         )}
 
         {/* Confirm Button */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.97 }}
           onClick={handleConfirm}
           disabled={!isValid || isProcessing}
           className={`w-full py-3 rounded-lg font-semibold font-inter transition-colors ${
             isValid && !isProcessing
-              ? 'bg-[#F59E0B] text-black hover:bg-[#D97706]'
-              : 'bg-[#F59E0B] text-black opacity-40 cursor-not-allowed'
+              ? 'bg-accent-amber text-black hover:bg-accent-amber-dark'
+              : 'bg-accent-amber text-black opacity-40 cursor-not-allowed'
           }`}
         >
           {redeemState === 'redeeming'
@@ -156,23 +195,24 @@ function RedeemContent() {
             : redeemState === 'confirming'
               ? 'Confirming...'
               : 'Confirm Redeem \u2192'}
-        </button>
+        </motion.button>
 
         {/* Back link */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.97 }}
           onClick={() => router.push('/dashboard')}
-          className="w-full mt-4 text-center text-[#9B9081] text-sm font-inter hover:text-[#F4EFE8] transition-colors"
+          className="w-full mt-4 text-center text-text-secondary text-sm font-inter hover:text-text-primary transition-colors"
         >
           ← Back to Dashboard
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
     </AppLayout>
   )
 }
 
 export default function RedeemPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#07080B]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-bg-page" />}>
       <RedeemContent />
     </Suspense>
   )

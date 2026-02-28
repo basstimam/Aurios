@@ -3,12 +3,29 @@
 import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import { formatUnits } from 'viem'
+import { motion, type Variants } from 'framer-motion'
 import { AppLayout, VaultCard } from '@/components'
 import { useVaultData } from '@/hooks/useVaultData'
 import { useUserPosition } from '@/hooks/useUserPosition'
 import { VAULTS, VAULT_LIST, VaultConfig } from '@/lib/contracts/vaults'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Animation Variants ────────────────────────────────────────────────────────
+
+const pageVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.3 } },
+}
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+}
+
+const stagger: Variants = {
+  visible: { transition: { staggerChildren: 0.07 } },
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const VAULT_APY: Record<string, string> = {
   yoUSD: '8.4%',
@@ -34,11 +51,15 @@ function StatCard({
   subtitle: string
 }) {
   return (
-    <div className="bg-[#0D0E15] border border-[#252838] rounded-xl p-6">
-      <p className="text-[#9B9081] text-sm font-inter mb-2">{title}</p>
-      <p className="font-roboto-mono text-[#F4EFE8] text-3xl font-bold mb-1">{value}</p>
-      <p className="text-[#6B625A] text-xs font-inter">{subtitle}</p>
-    </div>
+    <motion.div
+      variants={fadeUp}
+      whileHover={{ y: -2 }}
+      className="bg-bg-card border border-border-default rounded-xl p-6"
+    >
+      <p className="text-text-secondary text-sm font-inter mb-2">{title}</p>
+      <p className="font-roboto-mono text-text-primary text-3xl font-bold mb-1">{value}</p>
+      <p className="text-text-tertiary text-xs font-inter">{subtitle}</p>
+    </motion.div>
   )
 }
 
@@ -54,19 +75,21 @@ function VaultCardWrapper({
   const { data } = useVaultData(vault.address)
 
   return (
-    <VaultCard
-      name={vault.name}
-      assetSymbol={vault.assetSymbol}
-      description={vault.description}
-      color={vault.color}
-      apy={VAULT_APY[vault.name] ?? '—'}
-      tvl={
-        data?.totalAssets != null
-          ? fmtAssets(data.totalAssets, vault.decimals, vault.assetSymbol)
-          : undefined
-      }
-      onClick={onClick}
-    />
+    <motion.div variants={fadeUp} whileHover={{ y: -4 }}>
+      <VaultCard
+        name={vault.name}
+        assetSymbol={vault.assetSymbol}
+        description={vault.description}
+        color={vault.color}
+        apy={VAULT_APY[vault.name] ?? '—'}
+        tvl={
+          data?.totalAssets != null
+            ? fmtAssets(data.totalAssets, vault.decimals, vault.assetSymbol)
+            : undefined
+        }
+        onClick={onClick}
+      />
+    </motion.div>
   )
 }
 
@@ -81,11 +104,16 @@ function PortfolioStats() {
 
   if (!isConnected) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6"
+      >
         <StatCard title="Total Balance" value="—" subtitle="Connect wallet to view" />
         <StatCard title="Total Yield Earned" value="—" subtitle="Connect wallet to view" />
         <StatCard title="Active Positions" value="—" subtitle="Connect wallet to view" />
-      </div>
+      </motion.div>
     )
   }
 
@@ -94,7 +122,12 @@ function PortfolioStats() {
   ).length
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+    <motion.div
+      variants={stagger}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-1 sm:grid-cols-3 gap-6"
+    >
       <StatCard
         title="Total Balance"
         value="—"
@@ -110,7 +143,7 @@ function PortfolioStats() {
         value={String(activeCount)}
         subtitle="Vaults with deposits"
       />
-    </div>
+    </motion.div>
   )
 }
 
@@ -130,11 +163,16 @@ function PositionsTable() {
 
   if (!isConnected) {
     return (
-      <div className="bg-[#0D0E15] border border-[#252838] rounded-xl p-5">
-        <p className="text-[#6B625A] text-center py-12 font-inter">
+      <motion.div
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        className="bg-bg-card border border-border-default rounded-xl p-5"
+      >
+        <p className="text-text-tertiary text-center py-12 font-inter">
           Connect your wallet to view your active positions
         </p>
-      </div>
+      </motion.div>
     )
   }
 
@@ -151,46 +189,51 @@ function PositionsTable() {
 
   if (activeRows.length === 0) {
     return (
-      <div className="bg-[#0D0E15] border border-[#252838] rounded-xl p-5">
-        <p className="text-[#6B625A] text-center py-12 font-inter">
+      <motion.div
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        className="bg-bg-card border border-border-default rounded-xl p-5"
+      >
+        <p className="text-text-tertiary text-center py-12 font-inter">
           No active positions yet.{' '}
           <button
             onClick={() => router.push('/deposit/choose')}
-            className="text-[#F59E0B] underline hover:no-underline transition-all"
+            className="text-accent-amber underline hover:no-underline transition-all"
           >
             Deposit into a vault
           </button>{' '}
           to start earning yield.
         </p>
-      </div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="bg-[#0D0E15] border border-[#252838] rounded-xl overflow-hidden">
+    <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-[#1C1D27]">
+          <tr className="border-b border-border-subtle">
             {['Vault', 'Deposited', 'Current Value', 'Yield', 'APY', 'Actions'].map((col) => (
               <th
                 key={col}
-                className="text-[#9B9081] text-sm font-inter font-normal text-left px-6 py-4 first:pl-5"
+                className="text-text-secondary text-sm font-inter font-normal text-left px-6 py-4 first:pl-5"
               >
                 {col}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <motion.tbody variants={stagger} initial="hidden" animate="visible">
           {activeRows.map(({ vault, position }) => {
             const depositedStr = fmtAssets(position.assets, vault.decimals, vault.assetSymbol)
             const apyStr = VAULT_APY[vault.name] ?? '—'
 
-
             return (
-              <tr
+              <motion.tr
                 key={vault.address}
-                className="border-b border-[#1C1D27] last:border-b-0 hover:bg-[#0F1020] transition-colors"
+                variants={fadeUp}
+                className="border-b border-border-subtle last:border-b-0 hover:bg-bg-card-hover transition-colors"
               >
                 {/* Vault */}
                 <td className="px-5 py-4">
@@ -205,10 +248,10 @@ function PositionsTable() {
                       {vault.assetSymbol[0]}
                     </div>
                     <div>
-                      <p className="font-space-grotesk text-sm font-semibold text-[#F4EFE8]">
+                      <p className="font-space-grotesk text-sm font-semibold text-text-primary">
                         {vault.name}
                       </p>
-                      <p className="font-inter text-xs text-[#9B9081]">
+                      <p className="font-inter text-xs text-text-secondary">
                         {vault.assetSymbol}
                       </p>
                     </div>
@@ -217,26 +260,26 @@ function PositionsTable() {
 
                 {/* Deposited */}
                 <td className="px-6 py-4">
-                  <span className="font-roboto-mono text-sm text-[#F4EFE8]">
+                  <span className="font-roboto-mono text-sm text-text-primary">
                     {depositedStr}
                   </span>
                 </td>
 
                 {/* Current Value */}
                 <td className="px-6 py-4">
-                  <span className="font-roboto-mono text-sm text-[#F4EFE8]">
+                  <span className="font-roboto-mono text-sm text-text-primary">
                     {depositedStr}
                   </span>
                 </td>
 
                 {/* Yield */}
                 <td className="px-6 py-4">
-                  <span className="font-roboto-mono text-sm text-[#9B9081]">—</span>
+                  <span className="font-roboto-mono text-sm text-text-secondary">—</span>
                 </td>
 
                 {/* APY */}
                 <td className="px-6 py-4">
-                  <span className="font-roboto-mono text-sm text-[#F59E0B]">
+                  <span className="font-roboto-mono text-sm text-accent-amber">
                     {apyStr}
                   </span>
                 </td>
@@ -244,21 +287,25 @@ function PositionsTable() {
                 {/* Actions */}
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
                       onClick={() => router.push('/deposit/choose')}
-                      className="bg-[#F59E0B] text-black font-semibold px-4 py-2 rounded-lg hover:bg-[#D97706] text-sm transition-colors"
+                      className="bg-accent-amber text-black font-semibold px-4 py-2 rounded-lg hover:bg-accent-amber-dark text-sm transition-colors"
                     >
                       Deposit
-                    </button>
-                    <button className="border border-[#252838] text-[#9B9081] px-4 py-2 rounded-lg hover:border-[#F59E0B] hover:text-[#F59E0B] text-sm transition-colors">
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      className="border border-border-default text-text-secondary px-4 py-2 rounded-lg hover:border-accent-amber hover:text-accent-amber text-sm transition-colors"
+                    >
                       Withdraw
-                    </button>
+                    </motion.button>
                   </div>
                 </td>
-              </tr>
+              </motion.tr>
             )
           })}
-        </tbody>
+        </motion.tbody>
       </table>
     </div>
   )
@@ -271,22 +318,44 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-[1280px] mx-auto px-10 py-10 space-y-10">
+      <motion.div
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        className="max-w-[1280px] mx-auto px-10 py-10 space-y-10"
+      >
 
         {/* ── Portfolio Summary ─────────────────────────────────────────────── */}
         <section>
-          <h2 className="font-space-grotesk text-[#F4EFE8] text-xl font-bold mb-6">
+          <motion.h2
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="font-space-grotesk text-text-primary text-xl font-bold mb-6"
+          >
             Portfolio Summary
-          </h2>
+          </motion.h2>
           <PortfolioStats />
         </section>
 
         {/* ── Available Vaults ──────────────────────────────────────────────── */}
         <section>
-          <h2 className="font-space-grotesk text-[#F4EFE8] text-xl font-bold mb-4">
+          <motion.h2
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="font-space-grotesk text-text-primary text-xl font-bold mb-4"
+          >
             Available Vaults
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          </motion.h2>
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+          >
             {VAULT_LIST.map((vault) => (
               <VaultCardWrapper
                 key={vault.address}
@@ -294,33 +363,41 @@ export default function DashboardPage() {
                 onClick={() => router.push('/deposit/choose')}
               />
             ))}
-            <VaultCard
-              name="More Coming Soon"
-              assetSymbol="—"
-              description="New yield opportunities being added"
-              color="#6B625A"
-              isDisabled
-            />
-          </div>
+            <motion.div variants={fadeUp} whileHover={{ y: -4 }}>
+              <VaultCard
+                name="More Coming Soon"
+                assetSymbol="—"
+                description="New yield opportunities being added"
+                color="#6B625A"
+                isDisabled
+              />
+            </motion.div>
+          </motion.div>
         </section>
 
         {/* ── Active Positions ──────────────────────────────────────────────── */}
         <section>
-          <h2 className="font-space-grotesk text-[#F4EFE8] text-xl font-bold mb-4">
+          <motion.h2
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="font-space-grotesk text-text-primary text-xl font-bold mb-4"
+          >
             Active Positions
-          </h2>
+          </motion.h2>
           <PositionsTable />
         </section>
 
         {/* ── Footer ───────────────────────────────────────────────────────── */}
-        <footer className="border-t border-[#1C1D27] pt-8 text-center">
-          <p className="font-inter text-sm text-[#6B625A]">
+        <footer className="border-t border-border-subtle pt-8 text-center">
+          <p className="font-inter text-sm text-text-tertiary">
             Powered by{' '}
-            <span className="text-[#F59E0B] font-medium">YO Protocol</span>
+            <span className="text-accent-amber font-medium">YO Protocol</span>
           </p>
         </footer>
 
-      </div>
+      </motion.div>
     </AppLayout>
   )
 }
