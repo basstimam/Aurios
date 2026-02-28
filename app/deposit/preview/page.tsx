@@ -14,7 +14,7 @@ function PreviewContent() {
   const vault = VAULTS[vaultKey as keyof typeof VAULTS] || VAULTS.yoUSD
 
   const { deposit, state: depositState, txHash, error: depositError } = useDeposit()
-  const isLoading = depositState === 'approving' || depositState === 'confirming'
+  const isLoading = depositState === 'approving' || depositState === 'depositing' || depositState === 'confirming'
 
   const estimatedShares = (parseFloat(amount) * 0.98).toFixed(4)
   const apy = vaultKey === 'yoUSD' ? '8.4%' : vaultKey === 'yoETH' ? '5.2%' : '3.8%'
@@ -126,10 +126,12 @@ function PreviewContent() {
           }`}
         >
           {depositState === 'approving'
-            ? 'Approving...'
+            ? 'Step 1/2: Approving...'
+            : depositState === 'depositing'
+            ? 'Step 2/2: Depositing...'
             : depositState === 'confirming'
-              ? 'Confirming...'
-              : 'Confirm Deposit \u2192'}
+            ? 'Step 2/2: Confirming...'
+            : 'Confirm Deposit →'}
         </button>
 
         {/* Back link */}

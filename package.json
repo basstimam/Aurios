@@ -14,6 +14,7 @@
     "@yo-protocol/core": "^0.0.3",
     "@yo-protocol/react": "^0.0.3",
     "next": "14.2.35",
+    "porto": "^0.2.37",
     "react": "^18",
     "react-dom": "^18",
     "viem": "^2.46.3",

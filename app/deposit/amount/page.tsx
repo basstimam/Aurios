@@ -1,10 +1,12 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AppLayout, StepIndicator, AmountInput } from '@/components'
 import { VAULTS } from '@/lib/contracts/vaults'
 import type { VaultKey } from '@/lib/contracts/vaults'
+import { useYoClient } from '@/hooks/useYoClient'
+import { formatUnits } from 'viem'
 
 const AI_ADVISOR_TEXT: Record<string, string> = {
   yoUSD:
@@ -21,6 +23,19 @@ const MOCK_APY: Record<string, string> = {
   yoBTC: '3.8%',
 }
 
+/** Parse a decimal string to bigint with correct decimals */
+function parseTokenAmount(amount: string, decimals: number): bigint {
+  const [whole = '0', fraction = ''] = amount.split('.')
+  const paddedFraction = fraction.padEnd(decimals, '0').slice(0, decimals)
+  return BigInt(whole + paddedFraction)
+}
+
+/** Format bigint shares to human-readable string */
+function formatShares(shares: bigint, decimals: number): string {
+  const precision = decimals > 6 ? 6 : decimals
+  return parseFloat(formatUnits(shares, decimals)).toFixed(precision)
+}
+
 function EnterAmountContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -28,15 +43,42 @@ function EnterAmountContent() {
   const vault = VAULTS[vaultKey as VaultKey] || VAULTS.yoUSD
 
   const [amount, setAmount] = useState('')
+  const [estimatedShares, setEstimatedShares] = useState('—')
+  const [previewing, setPreviewing] = useState(false)
   const mockBalance = '1,000.00'
+
+  const { yo } = useYoClient()
 
   const parsed = parseFloat(amount)
   const isValid = !isNaN(parsed) && parsed > 0
 
-  // Mock estimated shares (98% of amount for display)
-  const estimatedShares = isValid
-    ? (parsed * 0.98).toFixed(vault.decimals > 6 ? 6 : vault.decimals)
-    : '\u2014'
+  // Real previewDeposit with 500ms debounce
+  useEffect(() => {
+    if (!isValid) {
+      setEstimatedShares('—')
+      return
+    }
+
+    setPreviewing(true)
+    const timer = setTimeout(async () => {
+      try {
+        if (yo) {
+          const amountBig = parseTokenAmount(amount, vault.decimals)
+          const shares = await yo.previewDeposit(vault.address, amountBig)
+          setEstimatedShares(formatShares(shares, vault.decimals))
+        } else {
+          // Fallback if wallet not connected: show approximate
+          setEstimatedShares((parsed * 0.98).toFixed(vault.decimals > 6 ? 6 : vault.decimals))
+        }
+      } catch {
+        setEstimatedShares('—')
+      } finally {
+        setPreviewing(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [amount, isValid, yo, vault, parsed])
 
   const handleContinue = () => {
     if (isValid) {
@@ -88,7 +130,11 @@ function EnterAmountContent() {
               You will receive
             </span>
             <span className="font-roboto-mono text-[#F4EFE8] text-sm">
-              {estimatedShares} {vault.name}
+              {previewing ? (
+                <span className="text-[#9B9081] animate-pulse">Calculating...</span>
+              ) : (
+                `${estimatedShares} ${vault.name}`
+              )}
             </span>
           </div>
           <div className="flex justify-between">

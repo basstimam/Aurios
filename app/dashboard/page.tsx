@@ -10,6 +10,12 @@ import { VAULTS, VAULT_LIST, VaultConfig } from '@/lib/contracts/vaults'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+const VAULT_APY: Record<string, string> = {
+  yoUSD: '8.4%',
+  yoETH: '5.2%',
+  yoBTC: '3.8%',
+}
+
 function fmtAssets(assets: bigint, decimals: number, symbol: string): string {
   const val = parseFloat(formatUnits(assets, decimals))
   const precision = decimals === 6 ? 2 : decimals === 8 ? 6 : 4
@@ -53,7 +59,7 @@ function VaultCardWrapper({
       assetSymbol={vault.assetSymbol}
       description={vault.description}
       color={vault.color}
-      apy={undefined}
+      apy={VAULT_APY[vault.name] ?? '—'}
       tvl={
         data?.totalAssets != null
           ? fmtAssets(data.totalAssets, vault.decimals, vault.assetSymbol)
@@ -176,9 +182,9 @@ function PositionsTable() {
           </tr>
         </thead>
         <tbody>
-          {activeRows.map(({ vault, position, vaultData }) => {
+          {activeRows.map(({ vault, position }) => {
             const depositedStr = fmtAssets(position.assets, vault.decimals, vault.assetSymbol)
-            const apyStr = '—'
+            const apyStr = VAULT_APY[vault.name] ?? '—'
 
 
             return (

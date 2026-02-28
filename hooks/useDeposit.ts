@@ -5,7 +5,7 @@ import { useYoClient } from './useYoClient'
 import { VAULTS } from '@/lib/contracts/vaults'
 import type { VaultKey } from '@/lib/contracts/vaults'
 
-type DepositState = 'idle' | 'approving' | 'confirming' | 'success' | 'error'
+type DepositState = 'idle' | 'approving' | 'depositing' | 'confirming' | 'success' | 'error'
 
 export function useDeposit() {
   const [state, setState] = useState<DepositState>('idle')
@@ -42,7 +42,7 @@ export function useDeposit() {
 
         const amount = parseTokenAmount(amountString, vault.decimals)
 
-        // Approve + Deposit in one SDK call
+        // Step 1: Approve + submit deposit tx
         const result = await yo.depositWithApproval({
           vault: vault.address,
           amount,
@@ -51,7 +51,11 @@ export function useDeposit() {
           token: vault.asset,
         })
 
-        // Wait for deposit tx confirmation
+        // Step 2: Wait for deposit tx confirmation
+        setState('depositing')
+        await yo.waitForTransaction(result.depositHash)
+
+        // Step 3: Confirming on-chain
         setState('confirming')
         await yo.waitForTransaction(result.depositHash)
 
