@@ -1,0 +1,17 @@
+=== Evidence: Tasks 5+6 — Providers + YoClient ===
+
+--- WagmiProvider check ---
+import { WagmiProvider } from 'wagmi'
+    <WagmiProvider config={wagmiConfig}>
+    </WagmiProvider>
+
+--- createYoClient check ---
+import { createYoClient } from '@yo-protocol/core'
+    return createYoClient({
+
+--- Providers in layout check ---
+import { Providers } from './providers'
+        <Providers>{children}</Providers>
+
+--- TSC result ---
+PASS: npx tsc --noEmit completed with 0 errors

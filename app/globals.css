@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-page: #07080B;
+  --bg-card: #0D0E15;
+  --text-primary: #F4EFE8;
+  --text-secondary: #9B9081;
+  --accent-amber: #F59E0B;
+  --border-subtle: #1C1D27;
+}
+
+html {
+  background-color: #07080B;
+  color: #F4EFE8;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/* Roboto Mono for financial numbers */
+.font-mono-number {
+  font-family: var(--font-roboto-mono), 'Courier New', monospace;
+  font-feature-settings: 'tnum';
+}
