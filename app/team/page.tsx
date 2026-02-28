@@ -1,4 +1,5 @@
 'use client'
+import { useAccount } from 'wagmi'
 import { AppLayout } from '@/components'
 
 const TEAM_MEMBERS = [
@@ -30,6 +31,26 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default function TeamPage() {
+  const { isConnected } = useAccount()
+
+  if (!isConnected) {
+    return (
+      <AppLayout>
+        <div className="max-w-[1280px] mx-auto px-10 py-10">
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
+            <div className="w-14 h-14 rounded-full bg-[#0D0E15] border border-[#252838] flex items-center justify-center">
+              <span className="font-space-grotesk text-[#9B9081] font-bold text-lg">T</span>
+            </div>
+            <h2 className="font-space-grotesk text-[#F4EFE8] text-xl font-bold">Team Management</h2>
+            <p className="text-[#9B9081] font-inter text-sm text-center max-w-xs">
+              Connect your wallet to view and manage your DAO treasury team.
+            </p>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
   return (
     <AppLayout>
       <div className="max-w-[1280px] mx-auto px-10 py-10">

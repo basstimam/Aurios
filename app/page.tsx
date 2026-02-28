@@ -37,6 +37,7 @@ function LandingNavbar() {
         <Link
           href="/dashboard"
           className="rounded-lg bg-accent-amber px-4 py-2 font-space-grotesk text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
+          style={{ backgroundColor: '#F59E0B', color: '#000000' }}
         >
           Launch App →
         </Link>
@@ -75,6 +76,7 @@ function HeroSection() {
           <Link
             href="/dashboard"
             className="rounded-lg bg-accent-amber px-6 py-3 font-space-grotesk text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
+            style={{ backgroundColor: '#F59E0B', color: '#000000' }}
           >
             Start Saving →
           </Link>
