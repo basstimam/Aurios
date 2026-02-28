@@ -2,9 +2,11 @@
 
 import { useState, useCallback } from 'react'
 import { useYoClient } from './useYoClient'
+import { useAccount } from 'wagmi'
 import { VAULTS } from '@/lib/contracts/vaults'
-import type { VaultKey } from '@/lib/contracts/vaults'
-
+import type { VaultKey, VaultConfig } from '@/lib/contracts/vaults'
+import { supabase } from '@/lib/supabase'
+import { formatUnits } from 'viem'
 type RedeemState = 'idle' | 'redeeming' | 'confirming' | 'success' | 'queued' | 'error'
 
 export function useRedeem() {
@@ -15,6 +17,7 @@ export function useRedeem() {
   const [error, setError] = useState<string | null>(null)
 
   const { yo, walletClient } = useYoClient()
+  const { address } = useAccount()
 
   const redeem = useCallback(
     async (vaultKey: string, sharesString: string) => {
@@ -63,6 +66,13 @@ export function useRedeem() {
           setRequestId(String(receipt.assetsOrRequestId))
           setState('queued')
         } else {
+          // Record to Supabase (best-effort)
+          void recordRedeem({
+            wallet: walletClient.account!.address.toLowerCase(),
+            vault,
+            shares: parseTokenAmount(sharesString, vault.decimals),
+            txHash: result.hash,
+          })
           setState('success')
         }
       } catch (err: unknown) {
@@ -72,7 +82,7 @@ export function useRedeem() {
         setState('error')
       }
     },
-    [yo, walletClient]
+    [yo, walletClient, address]
   )
 
   const reset = useCallback(() => {
@@ -91,4 +101,45 @@ function parseTokenAmount(amount: string, decimals: number): bigint {
   const [whole = '0', fraction = ''] = amount.split('.')
   const paddedFraction = fraction.padEnd(decimals, '0').slice(0, decimals)
   return BigInt(whole + paddedFraction)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Record redeem to Supabase (best-effort)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function recordRedeem({
+  wallet,
+  vault,
+  shares,
+  txHash,
+}: {
+  wallet: string
+  vault: VaultConfig
+  shares: bigint
+  txHash: string
+}) {
+  try {
+    const val = parseFloat(formatUnits(shares, vault.decimals))
+    const display = val >= 1_000_000
+      ? `$${(val / 1_000_000).toFixed(2)}M ${vault.assetSymbol}`
+      : val >= 1_000
+        ? `$${(val / 1_000).toFixed(2)}K ${vault.assetSymbol}`
+        : `${val.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${vault.assetSymbol}`
+
+    await supabase.from('transactions').insert({
+      wallet_address: wallet,
+      team_id: null,
+      vault_address: vault.address.toLowerCase(),
+      vault_name: vault.name,
+      vault_asset_symbol: vault.assetSymbol,
+      action: 'redeem',
+      amount_raw: shares.toString(),
+      amount_display: display,
+      tx_hash: txHash,
+      status: 'confirmed',
+      confirmed_at: new Date().toISOString(),
+    })
+  } catch {
+    // Non-critical — don't propagate
+  }
 }

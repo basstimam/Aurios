@@ -7,6 +7,7 @@ import { motion, type Variants } from 'framer-motion'
 import { AppLayout, VaultCard } from '@/components'
 import { useVaultData } from '@/hooks/useVaultData'
 import { useUserPosition } from '@/hooks/useUserPosition'
+import { useTransactions } from '@/hooks/useTransactions'
 import { VAULTS, VAULT_LIST, VaultConfig } from '@/lib/contracts/vaults'
 
 // ── Animation Variants ────────────────────────────────────────────────────────
@@ -313,6 +314,100 @@ function PositionsTable() {
   )
 }
 
+// ── TxHistorySection ────────────────────────────────────────────────────────────────────────
+
+function TxHistorySection() {
+  const { isConnected } = useAccount()
+  const { data: txs = [], isLoading } = useTransactions(10)
+
+  if (!isConnected) return null
+
+  return (
+    <section>
+      <motion.h2
+        variants={fadeUp}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        className="font-space-grotesk text-text-primary text-xl font-bold mb-4"
+      >
+        Transaction History
+      </motion.h2>
+      <motion.div
+        variants={fadeUp}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        className="bg-bg-card border border-border-default rounded-xl overflow-hidden"
+      >
+        {isLoading ? (
+          <div className="px-5 py-10 text-center font-inter text-text-tertiary text-sm">Loading transactions…</div>
+        ) : txs.length === 0 ? (
+          <div className="px-5 py-10 text-center">
+            <p className="font-inter text-text-tertiary text-sm">No transactions yet</p>
+            <p className="font-inter text-text-tertiary text-xs mt-1">Your deposits and redeems will appear here</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border-subtle">
+                <th className="text-left px-5 py-3 text-text-secondary text-xs font-inter uppercase tracking-wider">Action</th>
+                <th className="text-left px-5 py-3 text-text-secondary text-xs font-inter uppercase tracking-wider">Vault</th>
+                <th className="text-left px-5 py-3 text-text-secondary text-xs font-inter uppercase tracking-wider">Amount</th>
+                <th className="text-left px-5 py-3 text-text-secondary text-xs font-inter uppercase tracking-wider">Tx Hash</th>
+                <th className="text-left px-5 py-3 text-text-secondary text-xs font-inter uppercase tracking-wider">When</th>
+              </tr>
+            </thead>
+            <motion.tbody variants={stagger} initial="hidden" animate="visible">
+              {txs.map((tx) => (
+                <motion.tr
+                  key={tx.id}
+                  variants={fadeUp}
+                  className="border-b border-border-subtle last:border-0 hover:bg-bg-card-hover transition-colors"
+                >
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${tx.action === 'deposit' ? 'bg-accent-amber' : 'bg-blue-400'}`} />
+                      <span className="font-inter text-sm text-text-primary capitalize">{tx.action}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 font-space-grotesk text-sm text-text-primary font-semibold">{tx.vault_name}</td>
+                  <td className="px-5 py-4 font-roboto-mono text-sm text-text-primary">{tx.amount_display}</td>
+                  <td className="px-5 py-4">
+                    {tx.tx_hash ? (
+                      <a
+                        href={`https://basescan.org/tx/${tx.tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-roboto-mono text-xs text-accent-amber hover:underline"
+                      >
+                        {tx.tx_hash.slice(0, 8)}…
+                      </a>
+                    ) : (
+                      <span className="font-roboto-mono text-xs text-text-tertiary">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4 text-text-tertiary text-xs font-inter">
+                    {(() => {
+                      const diff = Date.now() - new Date(tx.created_at).getTime()
+                      const m = Math.floor(diff / 60000)
+                      if (m < 1) return 'just now'
+                      if (m < 60) return `${m}m ago`
+                      const h = Math.floor(m / 60)
+                      if (h < 24) return `${h}h ago`
+                      return `${Math.floor(h / 24)}d ago`
+                    })()
+                  }</td>
+                </motion.tr>
+              ))}
+            </motion.tbody>
+          </table>
+        )}
+      </motion.div>
+    </section>
+  )
+}
+
 // ── DashboardPage ─────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -390,6 +485,9 @@ export default function DashboardPage() {
           </motion.h2>
           <PositionsTable />
         </section>
+
+        {/* ── Transaction History ──────────────────────────────────────────────────── */}
+        <TxHistorySection />
 
         {/* ── Footer ───────────────────────────────────────────────────────── */}
         <footer className="border-t border-border-subtle pt-8 text-center">
