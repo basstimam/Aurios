@@ -57,7 +57,7 @@ function VaultOption({
     vaultData?.totalAssets != null
       ? fmtTVL(vaultData.totalAssets, vault.decimals, vault.assetSymbol)
       : '...'
-  const apy = snapshot?.apyFormatted ?? '...'
+  const apy = snapshot?.totalApyFormatted ?? '...'
 
   return (
     <motion.button
@@ -85,7 +85,14 @@ function VaultOption({
       <p className="font-space-grotesk text-text-primary font-semibold mb-1">{vault.name}</p>
       <p className="text-text-secondary text-xs font-inter mb-3">{vault.description}</p>
       <div className="flex gap-4">
-        <span className="text-accent-amber font-roboto-mono text-sm font-bold">{apy} APY</span>
+        <div>
+          <span className="text-accent-amber font-roboto-mono text-sm font-bold">{apy} APY</span>
+          {snapshot?.rewardApy != null && snapshot.rewardApy > 0 && (
+            <span className="text-text-tertiary font-inter text-[10px] block mt-0.5">
+              {snapshot.apyFormatted} native + {snapshot.rewardApy.toFixed(0)}% reward
+            </span>
+          )}
+        </div>
         <span className="text-text-tertiary font-roboto-mono text-sm">
           {tvl === '...' ? (
             <span className="inline-block w-12 h-3 bg-border-default rounded animate-pulse" />

@@ -107,7 +107,7 @@ function VaultCardWrapper({
         assetSymbol={vault.assetSymbol}
         description={vault.description}
         color={vault.color}
-        apy={snapshot?.apyFormatted ?? '...'}
+        apy={snapshot?.totalApyFormatted ?? '...'}
         tvl={
           data?.totalAssets != null
             ? fmtAssets(data.totalAssets, vault.decimals, vault.assetSymbol)
@@ -157,9 +157,9 @@ function PortfolioStats() {
 
   // Estimate annual yield per vault based on APY
   const apyRates: Record<string, number> = {
-    yoUSD: (snapUSD?.apy ?? 0) / 100,
-    yoETH: (snapETH?.apy ?? 0) / 100,
-    yoBTC: (snapBTC?.apy ?? 0) / 100,
+    yoUSD: (snapUSD?.totalApy ?? 0) / 100,
+    yoETH: (snapETH?.totalApy ?? 0) / 100,
+    yoBTC: (snapBTC?.totalApy ?? 0) / 100,
   }
   const positions = [
     { pos: posUSD, vault: VAULTS.yoUSD, key: 'yoUSD' },
@@ -204,7 +204,7 @@ function PortfolioStats() {
       <StatCard
         title="Est. Annual Yield"
         value={estYieldStr}
-        subtitle={activeCount > 1 ? 'Primary vault shown' : 'Based on current APY'}
+        subtitle="Based on total APY (native + reward)"
       />
       <StatCard
         title="Unrealized P&L"
@@ -299,10 +299,10 @@ function PositionsTable() {
   const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
   const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
   const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
-  const snapshots: Record<string, string> = {
-    [VAULTS.yoUSD.address]: snapUSD?.apyFormatted ?? '...',
-    [VAULTS.yoETH.address]: snapETH?.apyFormatted ?? '...',
-    [VAULTS.yoBTC.address]: snapBTC?.apyFormatted ?? '...',
+  const snapshots: Record<string, { apy: string; reward: string }> = {
+    [VAULTS.yoUSD.address]: { apy: snapUSD?.totalApyFormatted ?? '...', reward: snapUSD?.rewardApy ? `+${snapUSD.rewardApy.toFixed(0)}%` : '' },
+    [VAULTS.yoETH.address]: { apy: snapETH?.totalApyFormatted ?? '...', reward: snapETH?.rewardApy ? `+${snapETH.rewardApy.toFixed(0)}%` : '' },
+    [VAULTS.yoBTC.address]: { apy: snapBTC?.totalApyFormatted ?? '...', reward: snapBTC?.rewardApy ? `+${snapBTC.rewardApy.toFixed(0)}%` : '' },
   }
 
   if (!isConnected) {
@@ -371,7 +371,9 @@ function PositionsTable() {
         <motion.tbody variants={stagger} initial="hidden" animate="visible">
           {activeRows.map(({ vault, position }) => {
             const sharesStr = fmtShares(position.shares, vault.decimals, vault.name)
-            const apyStr = snapshots[vault.address] ?? '...'
+            const snap = snapshots[vault.address]
+            const apyStr = snap?.apy ?? '...'
+            const rewardStr = snap?.reward ?? ''
 
             return (
               <motion.tr
@@ -410,14 +412,21 @@ function PositionsTable() {
 
                 {/* Yield */}
                 <td className="px-6 py-4">
-                  <span className="font-roboto-mono text-sm text-text-secondary">{(() => { const a = parseFloat(formatUnits(position.assets, vault.decimals)); const rate = parseFloat((snapshots[vault.address] ?? '0%').replace('%','')); const y = a * (rate/100); return y > 0 ? `${y.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${vault.assetSymbol}` : '...' })()}</span>
+                  <span className="font-roboto-mono text-sm text-text-secondary">{(() => { const a = parseFloat(formatUnits(position.assets, vault.decimals)); const rate = parseFloat((snapshots[vault.address]?.apy ?? '0%').replace('%','')); const y = a * (rate/100); return y > 0 ? `${y.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${vault.assetSymbol}` : '...' })()}</span>
                 </td>
 
                 {/* APY */}
                 <td className="px-6 py-4">
-                  <span className="font-roboto-mono text-sm text-accent-amber">
-                    {apyStr}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-roboto-mono text-sm text-accent-amber">
+                      {apyStr}
+                    </span>
+                    {rewardStr && (
+                      <span className="text-text-tertiary text-[10px] font-inter">
+                        (incl. reward)
+                      </span>
+                    )}
+                  </div>
                 </td>
 
                 {/* Actions */}

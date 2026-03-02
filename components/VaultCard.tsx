@@ -33,7 +33,16 @@ export function VaultCard({
 }: VaultCardProps) {
   return (
     <div
+      role={!isDisabled ? "button" : undefined}
+      tabIndex={!isDisabled ? 0 : undefined}
       onClick={!isDisabled ? onClick : undefined}
+      onKeyDown={!isDisabled ? (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      } : undefined}
+
       className={`
         relative p-5 rounded-xl border transition-all duration-150 overflow-hidden
         ${isDisabled

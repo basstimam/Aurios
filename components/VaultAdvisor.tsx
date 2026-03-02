@@ -247,8 +247,13 @@ export function VaultAdvisor({ onSelect }: VaultAdvisorProps) {
 
                   <div className="flex items-center gap-4 mb-3">
                     <span className="font-roboto-mono text-accent-amber text-sm font-bold">
-                      {recSnap?.apyFormatted ?? '...'} APY
+                      {recSnap?.totalApyFormatted ?? '...'} APY
                     </span>
+                    {recSnap?.rewardApy != null && recSnap.rewardApy > 0 && (
+                      <span className="font-inter text-text-tertiary text-[10px]">
+                        {recSnap.apyFormatted} native + {recSnap.rewardApy.toFixed(0)}% reward
+                      </span>
+                    )}
                     <span className="font-roboto-mono text-text-tertiary text-xs">
                       {recVault.assetSymbol} vault
                     </span>

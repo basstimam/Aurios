@@ -168,7 +168,7 @@ function LandingNavbar() {
 }
 
 /* ── HeroSection ────────────────────────────────────────────────────── */
-function HeroSection({ totalTvl, heroApy }: { totalTvl?: string; heroApy?: string }) {
+function HeroSection({ totalTvl, heroApy, heroRewardApy }: { totalTvl?: string; heroApy?: string; heroRewardApy?: number }) {
   return (
     <section className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 py-24 md:grid-cols-2 md:py-32">
       {/* Left */}
@@ -275,6 +275,12 @@ function HeroSection({ totalTvl, heroApy }: { totalTvl?: string; heroApy?: strin
               <span className="font-inter text-xs text-text-secondary">Best APY</span>
               <span className="font-roboto-mono text-sm text-accent-amber">{heroApy ?? '...'}</span>
             </div>
+            {heroRewardApy != null && heroRewardApy > 0 && (
+              <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
+                <span className="font-inter text-xs text-text-secondary">Includes Reward APY</span>
+                <span className="font-roboto-mono text-sm text-accent-green">+{heroRewardApy.toFixed(0)}%</span>
+              </div>
+            )}
             <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
               <span className="font-inter text-xs text-text-secondary">Network</span>
               <span className="font-roboto-mono text-sm text-text-primary">Base Mainnet</span>
@@ -292,14 +298,15 @@ function HeroSection({ totalTvl, heroApy }: { totalTvl?: string; heroApy?: strin
   )
 }
 
-function StatsStrip({ realTvl, avgApy }: { realTvl?: string; avgApy?: number }) {
+function StatsStrip({ realTvl, avgApy, avgTotalApy }: { realTvl?: string; avgApy?: number; avgTotalApy?: number }) {
   const avgApyLabel = avgApy != null ? `${avgApy.toFixed(2)}%` : '...'
+  const avgTotalLabel = avgTotalApy != null ? `${avgTotalApy.toFixed(2)}%` : '...'
 
   const items = [
     { label: 'Total TVL', value: realTvl ?? '...' },
-    { label: 'Average APY (30d)', value: avgApyLabel },
+    { label: 'Avg Native APY', value: avgApyLabel },
+    { label: 'Avg Total APY', value: avgTotalLabel },
     { label: 'Active Vaults', value: '3' },
-    { label: 'Settlement Layer', value: 'Base L2' },
   ]
 
   return (
@@ -463,6 +470,8 @@ interface LandingVault {
   name: string
   asset: string
   apy: string
+  rewardApy: string
+  totalApy: string
   risk: string
   status: string
   accent: string
@@ -516,10 +525,15 @@ function VaultSection({ vaults }: { vaults: LandingVault[] }) {
 
                   <div className="flex flex-wrap items-center gap-6">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">APY</span>
+                      <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">Total APY</span>
                       <span className="font-roboto-mono text-lg font-semibold text-accent-amber">
-                        {v.apy}
+                        {v.totalApy}
                       </span>
+                      {v.rewardApy !== '0.00%' && (
+                        <span className="font-inter text-[10px] text-text-tertiary">
+                          {v.apy} + {v.rewardApy} reward
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">TVL</span>
@@ -574,10 +588,10 @@ function VaultSection({ vaults }: { vaults: LandingVault[] }) {
 }
 
 /* ── BenchmarkSection ──────────────────────────────────────────────── */
-function BenchmarkSection({ yoApy }: { yoApy: number | undefined }) {
-  const currentApy = yoApy ?? 0
+function BenchmarkSection({ yoTotalApy }: { yoTotalApy: number | undefined }) {
+  const currentApy = yoTotalApy ?? 0
   const comparisons = [
-    { label: 'Aurios (yoUSD)', apy: currentApy, tag: 'On-Chain YO Vault', isAccent: true },
+    { label: 'Aurios (yoUSD)', apy: currentApy, tag: 'Native + Reward APY', isAccent: true },
     { label: 'US High-Yield Savings', apy: 4.5, tag: 'Off-Chain', isAccent: false },
     { label: 'Traditional Savings', apy: 0.5, tag: 'Off-Chain', isAccent: false },
   ]
@@ -770,23 +784,33 @@ export default function LandingPage() {
 
   const totalTvlFormatted = totalTvlUsd != null ? fmtTotalTvl(totalTvlUsd) : undefined
 
-  const apyUSD = snapUSD?.apyFormatted
-  const apyETH = snapETH?.apyFormatted
-  const apyBTC = snapBTC?.apyFormatted
+  const apyUSD = snapUSD?.totalApyFormatted
+  const apyETH = snapETH?.totalApyFormatted
+  const apyBTC = snapBTC?.totalApyFormatted
 
   const avgApy = (snapUSD && snapETH && snapBTC)
     ? (snapUSD.apy + snapETH.apy + snapBTC.apy) / 3
     : undefined
 
-  const bestApy = (snapUSD && snapETH && snapBTC)
-    ? Math.max(snapUSD.apy, snapETH.apy, snapBTC.apy)
+  const avgTotalApy = (snapUSD && snapETH && snapBTC)
+    ? (snapUSD.totalApy + snapETH.totalApy + snapBTC.totalApy) / 3
+    : undefined
+
+  const bestTotalApy = (snapUSD && snapETH && snapBTC)
+    ? Math.max(snapUSD.totalApy, snapETH.totalApy, snapBTC.totalApy)
+    : undefined
+
+  const bestRewardApy = (snapUSD && snapETH && snapBTC)
+    ? Math.max(snapUSD.rewardApy, snapETH.rewardApy, snapBTC.rewardApy)
     : undefined
 
   const liveVaults: LandingVault[] = [
     {
       name: 'yoUSD Savings',
       asset: 'yoUSD',
-      apy: apyUSD ?? '...',
+      apy: snapUSD?.apyFormatted ?? '...',
+      rewardApy: snapUSD?.rewardApy != null ? `${snapUSD.rewardApy.toFixed(2)}%` : '...',
+      totalApy: apyUSD ?? '...',
       risk: 'Low',
       status: 'Active',
       accent: '#F59E0B',
@@ -796,7 +820,9 @@ export default function LandingPage() {
     {
       name: 'yoETH Growth',
       asset: 'yoETH',
-      apy: apyETH ?? '...',
+      apy: snapETH?.apyFormatted ?? '...',
+      rewardApy: snapETH?.rewardApy != null ? `${snapETH.rewardApy.toFixed(2)}%` : '...',
+      totalApy: apyETH ?? '...',
       risk: 'Med',
       status: 'Active',
       accent: '#3B82F6',
@@ -806,7 +832,9 @@ export default function LandingPage() {
     {
       name: 'yoBTC Reserve',
       asset: 'yoBTC',
-      apy: apyBTC ?? '...',
+      apy: snapBTC?.apyFormatted ?? '...',
+      rewardApy: snapBTC?.rewardApy != null ? `${snapBTC.rewardApy.toFixed(2)}%` : '...',
+      totalApy: apyBTC ?? '...',
       risk: 'Low',
       status: 'Active',
       accent: '#22C55E',
@@ -818,12 +846,16 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-bg-page text-text-primary">
       <LandingNavbar />
-      <HeroSection totalTvl={totalTvlFormatted} heroApy={bestApy != null ? `Up to ${bestApy.toFixed(2)}%` : undefined} />
-      <StatsStrip realTvl={totalTvlFormatted} avgApy={avgApy} />
+      <HeroSection
+        totalTvl={totalTvlFormatted}
+        heroApy={bestTotalApy != null ? `Up to ${bestTotalApy.toFixed(2)}%` : undefined}
+        heroRewardApy={bestRewardApy}
+      />
+      <StatsStrip realTvl={totalTvlFormatted} avgApy={avgApy} avgTotalApy={avgTotalApy} />
       <OpportunitySection />
       <FeaturesSection />
       <VaultSection vaults={liveVaults} />
-      <BenchmarkSection yoApy={snapUSD?.apy} />
+      <BenchmarkSection yoTotalApy={snapUSD?.totalApy} />
       <FinalCTA />
       <Footer />
     </main>

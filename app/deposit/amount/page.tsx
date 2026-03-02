@@ -28,8 +28,8 @@ const fadeUp: Variants = {
 
 // ── Vault Info text ───────────────────────────────────────────────────────────
 
-function getVaultInfo(vaultKey: string, apyFormatted?: string): string {
-  const apy = apyFormatted ?? '...'
+function getVaultInfo(vaultKey: string, apyFormatted?: string, totalApyFormatted?: string): string {
+  const apy = totalApyFormatted ?? apyFormatted ?? '...'
   switch (vaultKey) {
     case 'yoUSD':
       return `yoUSD earns yield on USDC deposits via YO Protocol. Current APY is ${apy}, paid continuously in yoUSD shares which appreciate against USDC over time. Suitable for stablecoin treasury reserves seeking passive yield.`
@@ -246,13 +246,21 @@ function EnterAmountContent() {
           <div className="flex justify-between">
             <span className="text-text-secondary text-sm font-inter">Current APY</span>
             <span className="font-roboto-mono text-accent-amber text-sm font-bold">
-              {snapshot?.apyFormatted ?? '...'}
+              {snapshot?.totalApyFormatted ?? '...'}
             </span>
           </div>
+          {snapshot?.rewardApy != null && snapshot.rewardApy > 0 && (
+            <div className="flex justify-between">
+              <span className="text-text-secondary text-sm font-inter">APY Breakdown</span>
+              <span className="font-inter text-xs text-text-tertiary">
+                {snapshot.apyFormatted} native + {snapshot.rewardApy.toFixed(0)}% reward
+              </span>
+            </div>
+          )}
         </motion.div>
 
         {/* Yield Projection */}
-        {parsed > 0 && !isNaN(parsed) && snapshot?.apy != null && snapshot.apy > 0 && (
+        {parsed > 0 && !isNaN(parsed) && snapshot?.totalApy != null && snapshot.totalApy > 0 && (
           <motion.div
             variants={fadeUp}
             className="bg-bg-card border border-border-default rounded-xl p-5 mt-4"
@@ -269,7 +277,7 @@ function EnterAmountContent() {
                 { label: '6 Months', months: 6 },
                 { label: '12 Months', months: 12 },
               ].map(({ label, months }) => {
-                const yieldAmt = parsed * (snapshot.apy / 100) * (months / 12)
+                const yieldAmt = parsed * (snapshot.totalApy / 100) * (months / 12)
                 const fmt =
                   yieldAmt < 0.001
                     ? '< 0.001'
@@ -288,7 +296,7 @@ function EnterAmountContent() {
               })}
             </div>
             <p className="text-text-tertiary text-xs font-inter mt-3 leading-relaxed">
-              Based on current {snapshot.apyFormatted} APY. Actual yield may vary with market conditions.
+              Based on current {snapshot.totalApyFormatted} APY. Actual yield may vary with market conditions.
             </p>
           </motion.div>
         )}
@@ -305,7 +313,7 @@ function EnterAmountContent() {
             </span>
           </div>
           <p className="text-text-secondary text-sm font-inter leading-relaxed">
-            {getVaultInfo(vaultKey, snapshot?.apyFormatted)}
+            {getVaultInfo(vaultKey, snapshot?.apyFormatted, snapshot?.totalApyFormatted)}
           </p>
         </motion.div>
 

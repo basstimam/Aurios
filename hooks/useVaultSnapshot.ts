@@ -15,6 +15,12 @@ export interface VaultSnapshot {
   apy7d: number
   /** APY formatted string, e.g. "5.73%" */
   apyFormatted: string
+  /** Merkl reward APY as percentage number, e.g. 12.0 */
+  rewardApy: number
+  /** Total APY (native + reward) */
+  totalApy: number
+  /** Total APY formatted, e.g. "17.62%" */
+  totalApyFormatted: string
   /** TVL in USD formatted, e.g. "$14.2M" */
   tvlUsd: string
   /** TVL in USD as raw number (dollars) */
@@ -50,6 +56,8 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
       const apy30d = parse(stats.yield?.['30d'])
       const apy1d  = parse(stats.yield?.['1d'])
       const apy7d  = parse(stats.yield?.['7d'])
+      const rewardApy = parse(stats.merklRewardYield)
+      const totalApy = apy30d + rewardApy
 
       // TVL: native amount from API
       const tvlNative = parseFloat(stats.tvl?.formatted ?? '0')
@@ -60,12 +68,15 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
       const tvlUsdRaw = price > 0 ? tvlNative * price : tvlNative
 
       return {
-        apy:          apy30d,
+        apy:               apy30d,
         apy1d,
         apy7d,
-        apyFormatted: apy30d > 0 ? `${apy30d.toFixed(2)}%` : '...',
-        tvlUsd:       formatUsd(tvlUsdRaw),
-        tvlRaw:       tvlUsdRaw,
+        apyFormatted:      apy30d > 0 ? `${apy30d.toFixed(2)}%` : '...',
+        rewardApy,
+        totalApy,
+        totalApyFormatted: totalApy > 0 ? `${totalApy.toFixed(2)}%` : '...',
+        tvlUsd:            formatUsd(tvlUsdRaw),
+        tvlRaw:            tvlUsdRaw,
       }
     },
     enabled:         !!vaultAddress,
