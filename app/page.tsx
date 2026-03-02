@@ -6,6 +6,7 @@ import { formatUnits } from 'viem'
 import { useVaultData } from '@/hooks/useVaultData'
 import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
 import { VAULTS } from '@/lib/contracts/vaults'
+import { usePrices } from '@/hooks/usePrices'
 
 import { VaultIcon } from '@/components/VaultIcon'
 
@@ -280,7 +281,7 @@ function HeroSection({ totalTvl, heroApy }: { totalTvl?: string; heroApy?: strin
               <span className="font-roboto-mono text-sm text-text-primary">{totalTvl ?? '...'}</span>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
-              <span className="font-inter text-xs text-text-secondary">Avg APY (3 vaults)</span>
+              <span className="font-inter text-xs text-text-secondary">Best APY</span>
               <span className="font-roboto-mono text-sm text-accent-amber">{heroApy ?? '...'}</span>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
@@ -768,10 +769,24 @@ export default function LandingPage() {
   const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
   const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
   const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+  const { data: prices } = usePrices()
 
   const tvlUSD = usd.data ? fmtTVL(usd.data.totalAssets, 6, 'USDC') : undefined
   const tvlETH = eth.data ? fmtTVL(eth.data.totalAssets, 18, 'WETH') : undefined
   const tvlBTC = btc.data ? fmtTVL(btc.data.totalAssets, 8, 'cbBTC') : undefined
+
+  // Total TVL in USD across all 3 vaults
+  const totalTvlUsd = (snapUSD && snapETH && snapBTC && prices)
+    ? snapUSD.tvlRaw + (snapETH.tvlRaw * prices.ethereum) + (snapBTC.tvlRaw * prices.bitcoin)
+    : undefined
+
+  const fmtTotalTvl = (v: number) =>
+    v >= 1_000_000_000 ? `$${(v / 1_000_000_000).toFixed(2)}B`
+    : v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M`
+    : v >= 1_000 ? `$${(v / 1_000).toFixed(1)}K`
+    : `$${v.toFixed(0)}`
+
+  const totalTvlFormatted = totalTvlUsd != null ? fmtTotalTvl(totalTvlUsd) : undefined
 
   const apyUSD = snapUSD?.apyFormatted
   const apyETH = snapETH?.apyFormatted
@@ -779,6 +794,10 @@ export default function LandingPage() {
 
   const avgApy = (snapUSD && snapETH && snapBTC)
     ? (snapUSD.apy + snapETH.apy + snapBTC.apy) / 3
+    : undefined
+
+  const bestApy = (snapUSD && snapETH && snapBTC)
+    ? Math.max(snapUSD.apy, snapETH.apy, snapBTC.apy)
     : undefined
 
   const liveVaults: LandingVault[] = [
@@ -817,8 +836,8 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-bg-page text-text-primary">
       <LandingNavbar />
-      <HeroSection totalTvl={tvlUSD} heroApy={avgApy != null ? `${avgApy.toFixed(2)}%` : undefined} />
-      <StatsStrip realTvl={tvlUSD} avgApy={avgApy} />
+      <HeroSection totalTvl={totalTvlFormatted} heroApy={bestApy != null ? `Up to ${bestApy.toFixed(2)}%` : undefined} />
+      <StatsStrip realTvl={totalTvlFormatted} avgApy={avgApy} />
       <OpportunitySection />
       <FeaturesSection />
       <VaultSection vaults={liveVaults} />

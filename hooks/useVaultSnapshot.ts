@@ -15,6 +15,8 @@ export interface VaultSnapshot {
   apyFormatted: string
   /** TVL in USD formatted, e.g. "$35.7M" */
   tvlUsd: string
+  /** TVL raw number (native token units, e.g. 35587068 for USDC, 7127 for WETH) */
+  tvlRaw: number
 }
 
 function formatTvlUsd(raw: string): string {
@@ -52,6 +54,7 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
         apy7d,
         apyFormatted: apy30d > 0 ? `${apy30d.toFixed(2)}%` : '...',
         tvlUsd:       formatTvlUsd(stats.tvl?.formatted ?? '0'),
+        tvlRaw:       parseFloat(stats.tvl?.formatted ?? '0'),
       }
     },
     enabled:         !!vaultAddress,

@@ -8,9 +8,8 @@ Aurios enables DAO treasuries to earn yield on idle assets (USDC, WETH, cbBTC) t
 
 ## Live Demo
 
-> **Demo Video**: [Watch 3-minute walkthrough](#) *(coming soon)*
-
----
+> **Production**: [aurios.vercel.app](https://smelt-gamma.vercel.app)
+> **GitHub**: [github.com/basstimam/Aurios](https://github.com/basstimam/Aurios)
 
 ## YO SDK Integration
 
