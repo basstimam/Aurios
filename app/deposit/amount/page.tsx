@@ -129,6 +129,7 @@ function EnterAmountContent() {
   useEffect(() => {
     if (!isValid || !vault) {
       setEstimatedShares('...')
+      setPreviewing(false)
       return
     }
 
