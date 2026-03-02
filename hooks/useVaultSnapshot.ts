@@ -3,7 +3,13 @@
 import { useQuery } from '@tanstack/react-query'
 
 const YO_API = 'https://api.yo.xyz'
+const COINGECKO_API = 'https://api.coingecko.com/api/v3'
 
+// Map vault asset symbol to CoinGecko ID (only non-stablecoin vaults need price conversion)
+const ASSET_COINGECKO: Record<string, string> = {
+  WETH: 'ethereum',
+  cbBTC: 'bitcoin',
+}
 export interface VaultSnapshot {
   /** 30-day APY as percentage number, e.g. 5.73 */
   apy: number
@@ -47,9 +53,29 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
       const apy1d  = parse(stats.yield?.['1d'])
       const apy7d  = parse(stats.yield?.['7d'])
 
-      // Sum protocolStats tvlUsd for accurate USD total
-      const protocols: { tvlUsd?: { raw?: number } }[] = stats.protocolStats ?? []
-      const tvlUsdRaw = protocols.reduce((sum: number, p) => sum + (p.tvlUsd?.raw ?? 0), 0)
+      // TVL: native amount from API
+      const tvlNative = parseFloat(stats.tvl?.formatted ?? '0')
+
+      // Determine asset symbol from response
+      const assetSymbol: string = json?.data?.asset?.symbol ?? ''
+      const coingeckoId = ASSET_COINGECKO[assetSymbol]
+
+      let tvlUsdRaw: number
+      if (!coingeckoId) {
+        // Stablecoin (USDC) — native amount IS USD
+        tvlUsdRaw = tvlNative
+      } else {
+        // Need price conversion
+        try {
+          const priceRes = await fetch(`${COINGECKO_API}/simple/price?ids=${coingeckoId}&vs_currencies=usd`)
+          const priceJson = await priceRes.json()
+          const price = priceJson?.[coingeckoId]?.usd ?? 0
+          tvlUsdRaw = tvlNative * price
+        } catch {
+          // Fallback: use native amount (better than 0)
+          tvlUsdRaw = tvlNative
+        }
+      }
 
       return {
         apy:          apy30d,

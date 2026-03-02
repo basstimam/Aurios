@@ -100,8 +100,7 @@ export function useDeposit() {
     setError(null)
   }, [])
 
-  const isReady = !!yo && !!walletClient
-  return { deposit, state, txHash, error, reset, isReady }
+  return { deposit, state, txHash, error, reset }
 }
 
 /** Parse a decimal string to bigint with correct decimals */
