@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi'
 import { usePrivy, useLogin } from '@privy-io/react-auth'
 import { motion, type Variants } from 'framer-motion'
 import { AppLayout } from '@/components'
-import { useTeam, useTeamMembers, useCreateTeam, useInviteMember, useUpdateMember } from '@/hooks/useTeam'
+import { useTeam, useTeamMembers, useCreateTeam, useInviteMember, useUpdateMember, usePendingInvite, useRespondInvite } from '@/hooks/useTeam'
 import { useTeamTransactions } from '@/hooks/useTransactions'
 import type { TeamRole, TxAction } from '@/lib/supabase'
 import { useTreasuryPositions } from '@/hooks/useTreasuryPositions'
@@ -269,6 +269,57 @@ function InviteModal({ teamId, onClose }: { teamId: string; onClose: () => void 
   )
 }
 
+// ── Pending Invite Banner ─────────────────────────────────────────────────────
+
+function PendingInviteBanner({
+  invite,
+  onRespond,
+  isResponding,
+}: {
+  invite: { memberId: string; teamName: string; role: string; invitedBy: string }
+  onRespond: (memberId: string, accept: boolean) => void
+  isResponding: boolean
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-bg-card border border-accent-amber/30 rounded-xl p-5 mb-6"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <p className="font-space-grotesk text-text-primary font-semibold">
+            You have been invited to <span className="text-accent-amber">{invite.teamName}</span>
+          </p>
+          <p className="font-inter text-text-secondary text-sm mt-1">
+            Role: <span className="font-medium text-text-primary">{invite.role}</span>
+            {invite.invitedBy && (
+              <> &middot; Invited by <span className="font-roboto-mono text-xs">{invite.invitedBy.slice(0, 6)}...{invite.invitedBy.slice(-4)}</span></>
+            )}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onRespond(invite.memberId, false)}
+            disabled={isResponding}
+            className="rounded-lg border border-border-default px-4 py-2 font-inter text-sm text-text-secondary hover:border-red-400 hover:text-red-400 transition-colors disabled:opacity-50"
+          >
+            Decline
+          </button>
+          <button
+            onClick={() => onRespond(invite.memberId, true)}
+            disabled={isResponding}
+            className="rounded-lg px-4 py-2 font-inter text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: 'var(--accent-amber)', color: '#000' }}
+          >
+            {isResponding ? 'Processing...' : 'Accept'}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function TeamPage() {
@@ -282,6 +333,8 @@ export default function TeamPage() {
   const { data: members = [], isLoading: membersLoading } = useTeamMembers(team?.id)
   const { data: txHistory = [], isLoading: txLoading } = useTeamTransactions(team?.id)
   const { mutateAsync: updateMember } = useUpdateMember()
+  const { data: pendingInvite } = usePendingInvite()
+  const { mutateAsync: respondInvite, isPending: responding } = useRespondInvite()
 
   const wallet = address?.toLowerCase()
   const myMembership = members.find(m => m.wallet_address === wallet)
@@ -345,6 +398,13 @@ export default function TeamPage() {
     return (
       <AppLayout>
         <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10">
+          {pendingInvite && (
+            <PendingInviteBanner
+              invite={pendingInvite}
+              onRespond={(id, accept) => respondInvite({ memberId: id, accept })}
+              isResponding={responding}
+            />
+          )}
           <motion.div variants={fadeUp} className="flex flex-col items-center justify-center py-24 gap-5">
             <div className="w-16 h-16 rounded-2xl bg-bg-card border border-border-default flex items-center justify-center text-accent-amber">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -352,7 +412,7 @@ export default function TeamPage() {
             <div className="text-center">
               <h2 className="font-space-grotesk text-text-primary text-xl font-bold mb-2">No Team Yet</h2>
               <p className="font-inter text-text-secondary text-sm max-w-sm">
-                Create a team to share your treasury dashboard with DAO members. Invite members and viewers to monitor vault positions together.
+                Create a team to share your treasury dashboard with DAO members.
               </p>
             </div>
             <motion.button
@@ -375,6 +435,15 @@ export default function TeamPage() {
   return (
     <AppLayout>
       <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10">
+
+        {/* Pending Invite Banner (shown even if user is already in a team, for edge cases) */}
+        {pendingInvite && (
+          <PendingInviteBanner
+            invite={pendingInvite}
+            onRespond={(id, accept) => respondInvite({ memberId: id, accept })}
+            isResponding={responding}
+          />
+        )}
 
         {/* Page Header */}
         <motion.div variants={fadeUp} className="flex justify-between items-center mb-8">
