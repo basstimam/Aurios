@@ -7,7 +7,7 @@ import { BASE_CHAIN_ID } from '@/lib/chains'
 
 export function useYoClient() {
   const publicClient = usePublicClient({ chainId: BASE_CHAIN_ID })
-  const { data: walletClient } = useWalletClient()
+  const { data: walletClient } = useWalletClient({ chainId: BASE_CHAIN_ID })
 
   const yo = useMemo(() => {
     if (!publicClient) return null
