@@ -2,11 +2,8 @@
 
 import { motion, Variants } from 'framer-motion'
 import Link from 'next/link'
-import { formatUnits } from 'viem'
-import { useVaultData } from '@/hooks/useVaultData'
 import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
 import { VAULTS } from '@/lib/contracts/vaults'
-import { usePrices } from '@/hooks/usePrices'
 
 import { VaultIcon } from '@/components/VaultIcon'
 
@@ -120,13 +117,7 @@ const fadeLeft: Variants = {
   visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 }
 
-/* ── TVL Formatter ──────────────────────────────────────────────── */
-function fmtTVL(assets: bigint, decimals: number, symbol: string): string {
-  const val = parseFloat(formatUnits(assets, decimals))
-  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M ${symbol}`
-  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}K ${symbol}`
-  return `${val.toFixed(2)} ${symbol}`
-}
+
 
 /* ── LandingNavbar ──────────────────────────────────────────────────── */
 function LandingNavbar() {
@@ -762,22 +753,13 @@ function Footer() {
 
 /* ── Page ───────────────────────────────────────────────────────────── */
 export default function LandingPage() {
-  const usd = useVaultData(VAULTS.yoUSD.address)
-  const eth = useVaultData(VAULTS.yoETH.address)
-  const btc = useVaultData(VAULTS.yoBTC.address)
-
   const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
   const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
   const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
-  const { data: prices } = usePrices()
 
-  const tvlUSD = usd.data ? fmtTVL(usd.data.totalAssets, 6, 'USDC') : undefined
-  const tvlETH = eth.data ? fmtTVL(eth.data.totalAssets, 18, 'WETH') : undefined
-  const tvlBTC = btc.data ? fmtTVL(btc.data.totalAssets, 8, 'cbBTC') : undefined
-
-  // Total TVL in USD across all 3 vaults
-  const totalTvlUsd = (snapUSD && snapETH && snapBTC && prices)
-    ? snapUSD.tvlRaw + (snapETH.tvlRaw * prices.ethereum) + (snapBTC.tvlRaw * prices.bitcoin)
+  // Total TVL in USD across all 3 vaults (API returns USD for all)
+  const totalTvlUsd = (snapUSD && snapETH && snapBTC)
+    ? snapUSD.tvlRaw + snapETH.tvlRaw + snapBTC.tvlRaw
     : undefined
 
   const fmtTotalTvl = (v: number) =>
@@ -808,7 +790,7 @@ export default function LandingPage() {
       risk: 'Low',
       status: 'Active',
       accent: '#F59E0B',
-      tvl: tvlUSD,
+      tvl: snapUSD?.tvlUsd,
       minDeposit: '1 USDC',
     },
     {
@@ -818,7 +800,7 @@ export default function LandingPage() {
       risk: 'Med',
       status: 'Active',
       accent: '#3B82F6',
-      tvl: tvlETH,
+      tvl: snapETH?.tvlUsd,
       minDeposit: '0.001 WETH',
     },
     {
@@ -828,7 +810,7 @@ export default function LandingPage() {
       risk: 'Low',
       status: 'Active',
       accent: '#22C55E',
-      tvl: tvlBTC,
+      tvl: snapBTC?.tvlUsd,
       minDeposit: '0.0001 cbBTC',
     },
   ]

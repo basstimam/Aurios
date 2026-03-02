@@ -33,7 +33,6 @@ const stagger: Variants = {
 const ROLE_BADGE: Record<TeamRole, string> = {
   admin:  'bg-amber-500/10 text-amber-500 border border-amber-500/30',
   member: 'bg-blue-500/10 text-blue-400 border border-blue-500/30',
-  viewer: 'bg-border-default/30 text-text-secondary border border-border-default',
 }
 
 const ACTION_DOT: Record<TxAction, string> = {
@@ -240,9 +239,8 @@ function InviteModal({ teamId, onClose }: { teamId: string; onClose: () => void 
               onChange={e => setRole(e.target.value as TeamRole)}
               className="w-full rounded-lg border border-border-default bg-bg-page px-3 py-2.5 font-inter text-sm text-text-primary focus:border-accent-amber focus:outline-none"
             >
-              <option value="admin">Admin -- full access</option>
-              <option value="member">Member -- can view shared dashboard</option>
-              <option value="viewer">Viewer -- read-only</option>
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
             </select>
           </div>
 
@@ -491,7 +489,6 @@ export default function TeamPage() {
                           >
                             <option value="admin">admin</option>
                             <option value="member">member</option>
-                            <option value="viewer">viewer</option>
                           </select>
                         </td>
                       )}
@@ -582,7 +579,7 @@ export default function TeamPage() {
             <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl p-5">
               <h2 className="font-space-grotesk text-text-primary font-semibold mb-4">Member Breakdown</h2>
               <div className="space-y-2.5">
-                {(['admin', 'member', 'viewer'] as TeamRole[]).map(role => {
+                {(['admin', 'member'] as TeamRole[]).map(role => {
                   const count = members.filter(m => m.role === role && m.status === 'active').length
                   return (
                     <div key={role} className="flex items-center justify-between">

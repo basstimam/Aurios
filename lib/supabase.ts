@@ -6,7 +6,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
 
 // Application-level types (narrowed from DB string types)
-export type TeamRole     = 'admin' | 'member' | 'viewer'
+export type TeamRole     = 'admin' | 'member'
 export type MemberStatus = 'active' | 'pending' | 'removed'
 export type TxAction     = 'deposit' | 'redeem'
 export type TxStatus     = 'pending' | 'confirmed' | 'failed'
