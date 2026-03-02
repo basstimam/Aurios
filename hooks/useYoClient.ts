@@ -14,14 +14,14 @@ export function useYoClient() {
   const [walletClient, setWalletClient] = useState<WalletClient | undefined>()
 
   // Get EIP-1193 provider from Privy's wallet and create a viem WalletClient.
-  // This bypasses wagmi's useConnectorClient which is unreliable with Privy.
+  // Ensures wallet is switched to Base before creating the client.
   useEffect(() => {
     let cancelled = false
 
     async function resolve() {
-      // Find the first connected external wallet (not embedded)
+      // Pick first connected wallet (external preferred)
       const w = wallets.find(
-        (wl) => wl.walletClientType !== 'privy' && wl.chainId === `eip155:${BASE_CHAIN_ID}`
+        (wl) => wl.walletClientType !== 'privy'
       ) ?? wallets[0]
 
       if (!w) {
@@ -30,6 +30,11 @@ export function useYoClient() {
       }
 
       try {
+        // Switch wallet to Base if not already on it
+        if (w.chainId !== `eip155:${BASE_CHAIN_ID}`) {
+          await w.switchChain(BASE_CHAIN_ID)
+        }
+
         const provider = await w.getEthereumProvider()
         if (cancelled) return
 
