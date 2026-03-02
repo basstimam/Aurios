@@ -69,12 +69,12 @@ export function useRedeem() {
   const [error, setError] = useState<string | null>(null)
 
   const { yo, walletClient } = useYoClient()
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
 
   const redeem = useCallback(
     async (vaultKey: string, sharesString: string) => {
       if (!yo || !walletClient) {
-        setError('Please connect your wallet')
+        setError(isConnected ? 'Wallet still initializing, please try again' : 'Please connect your wallet')
         setState('error')
         return
       }
@@ -187,7 +187,7 @@ export function useRedeem() {
         setState('error')
       }
     },
-    [yo, walletClient, address]
+    [yo, walletClient, address, isConnected]
   )
 
   const reset = useCallback(() => {

@@ -42,7 +42,7 @@ function PreviewContent() {
   const vault = VAULTS[vaultKey as VaultKey]
 
   // ALL hooks MUST be called before any early return
-  const { deposit, state: depositState, txHash, error: depositError } = useDeposit()
+  const { deposit, state: depositState, txHash, error: depositError, isReady } = useDeposit()
   const { data: snapshot } = useVaultSnapshot(vault?.address)
   const { yo } = useYoClient()
   const [showRisk, setShowRisk] = useState(false)
@@ -93,6 +93,7 @@ function PreviewContent() {
   if (!vault || !amount || amount === '0') return <div className="min-h-screen bg-bg-page" />
 
   const isLoading = depositState === 'approving' || depositState === 'depositing' || depositState === 'confirming'
+  const isDisabled = isLoading || !isReady
 
   const apy = snapshot?.apyFormatted ?? '...'
 
@@ -189,20 +190,22 @@ function PreviewContent() {
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleConfirm}
-          disabled={isLoading}
+          disabled={isDisabled}
           className={`w-full py-3 rounded-lg font-semibold font-inter transition-colors mb-4 ${
-            isLoading
+            isDisabled
               ? 'bg-accent-amber/50 text-black/50 cursor-not-allowed'
               : 'bg-accent-amber text-black hover:bg-accent-amber-dark'
           }`}
         >
-          {depositState === 'approving'
+          {!isReady
+            ? 'Initializing wallet...'
+            : depositState === 'approving'
             ? 'Step 1/2: Approving...'
             : depositState === 'depositing'
             ? 'Step 2/2: Depositing...'
             : depositState === 'confirming'
             ? 'Step 2/2: Confirming...'
-            : 'Confirm Deposit →'}
+            : 'Confirm Deposit \u2192'}
         </motion.button>
 
         {/* Back link */}

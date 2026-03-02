@@ -13,17 +13,16 @@ export interface VaultSnapshot {
   apy7d: number
   /** APY formatted string, e.g. "5.73%" */
   apyFormatted: string
-  /** TVL in USD formatted, e.g. "$35.7M" */
+  /** TVL in USD formatted, e.g. "$14.2M" */
   tvlUsd: string
-  /** TVL raw number (native token units, e.g. 35587068 for USDC, 7127 for WETH) */
+  /** TVL in USD as raw number (dollars) */
   tvlRaw: number
 }
 
-function formatTvlUsd(raw: string): string {
-  const val = parseFloat(raw)
-  if (isNaN(val)) return '...'
+function formatUsd(val: number): string {
+  if (val <= 0 || isNaN(val)) return '...'
   if (val >= 1_000_000_000) return `$${(val / 1_000_000_000).toFixed(2)}B`
-  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`
+  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`
   if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K`
   return `$${val.toFixed(0)}`
 }
@@ -48,13 +47,17 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
       const apy1d  = parse(stats.yield?.['1d'])
       const apy7d  = parse(stats.yield?.['7d'])
 
+      // Sum protocolStats tvlUsd for accurate USD total
+      const protocols: { tvlUsd?: { raw?: number } }[] = stats.protocolStats ?? []
+      const tvlUsdRaw = protocols.reduce((sum: number, p) => sum + (p.tvlUsd?.raw ?? 0), 0)
+
       return {
         apy:          apy30d,
         apy1d,
         apy7d,
         apyFormatted: apy30d > 0 ? `${apy30d.toFixed(2)}%` : '...',
-        tvlUsd:       formatTvlUsd(stats.tvl?.formatted ?? '0'),
-        tvlRaw:       parseFloat(stats.tvl?.formatted ?? '0'),
+        tvlUsd:       formatUsd(tvlUsdRaw),
+        tvlRaw:       tvlUsdRaw,
       }
     },
     enabled:         !!vaultAddress,

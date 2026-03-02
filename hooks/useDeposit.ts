@@ -9,19 +9,18 @@ import { supabase } from '@/lib/supabase'
 import { formatUnits, erc20Abi, maxUint256 } from 'viem'
 import { ADDRESSES } from '@/lib/contracts/addresses'
 type DepositState = 'idle' | 'approving' | 'depositing' | 'confirming' | 'success' | 'error'
-
 export function useDeposit() {
   const [state, setState] = useState<DepositState>('idle')
   const [txHash, setTxHash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const { yo, walletClient } = useYoClient()
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
 
   const deposit = useCallback(
     async (vaultKey: string, amountString: string) => {
       if (!yo || !walletClient) {
-        setError('Please connect your wallet')
+        setError(isConnected ? 'Wallet still initializing, please try again' : 'Please connect your wallet')
         setState('error')
         return
       }
@@ -93,7 +92,7 @@ export function useDeposit() {
         setState('error')
       }
     },
-    [yo, walletClient, address]
+    [yo, walletClient, address, isConnected]
   )
   const reset = useCallback(() => {
     setState('idle')
@@ -101,7 +100,8 @@ export function useDeposit() {
     setError(null)
   }, [])
 
-  return { deposit, state, txHash, error, reset }
+  const isReady = !!yo && !!walletClient
+  return { deposit, state, txHash, error, reset, isReady }
 }
 
 /** Parse a decimal string to bigint with correct decimals */

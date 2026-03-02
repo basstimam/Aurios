@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation'
 import { usePrivy, useLogin, useLogout } from '@privy-io/react-auth'
 import { useAccount } from 'wagmi'
 import { ThemeToggle } from './ThemeToggle'
+import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
+import { VAULT_LIST } from '@/lib/contracts/vaults'
 
 
 const NAV_LINKS = [
@@ -56,6 +58,34 @@ function WalletButton() {
   )
 }
 
+function TvlBadge() {
+  const s0 = useVaultSnapshot(VAULT_LIST[0].address)
+  const s1 = useVaultSnapshot(VAULT_LIST[1].address)
+  const s2 = useVaultSnapshot(VAULT_LIST[2].address)
+
+  const total = (s0.data?.tvlRaw ?? 0) + (s1.data?.tvlRaw ?? 0) + (s2.data?.tvlRaw ?? 0)
+
+  const fmt = (v: number) =>
+    v >= 1_000_000_000 ? `$${(v / 1_000_000_000).toFixed(2)}B`
+    : v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M`
+    : v >= 1_000 ? `$${(v / 1_000).toFixed(1)}K`
+    : `$${v.toFixed(0)}`
+
+  if (total <= 0) return null
+
+  return (
+    <div
+      className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-inter font-medium"
+      style={{ backgroundColor: 'rgba(217,119,6,0.10)', color: 'var(--accent-amber)' }}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <rect x="3" y="11" width="18" height="11" rx="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+      {fmt(total)} TVL
+    </div>
+  )
+}
 export function Navbar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -101,9 +131,10 @@ export function Navbar() {
           })}
         </div>
 
-        {/* Right: Theme Toggle + Wallet + Mobile Menu Button */}
+        {/* Right: Theme Toggle + TVL + Wallet + Mobile Menu Button */}
         <div className="flex items-center gap-3">
           <ThemeToggle />
+          <TvlBadge />
           <WalletButton />
           {/* Mobile hamburger */}
           <button

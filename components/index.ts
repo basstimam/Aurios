@@ -1,5 +1,4 @@
 export { Navbar } from './Navbar'
-export { TrustBar } from './TrustBar'
 export { AppLayout } from './AppLayout'
 export { VaultCard } from './VaultCard'
 export { AmountInput } from './AmountInput'
