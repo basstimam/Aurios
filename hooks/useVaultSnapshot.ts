@@ -1,15 +1,11 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useTokenPrices, VAULT_PRICE_KEY } from './useTokenPrices'
+import type { TokenPrices } from './useTokenPrices'
 
 const YO_API = 'https://api.yo.xyz'
-const COINGECKO_API = 'https://api.coingecko.com/api/v3'
 
-// Map vault asset symbol to CoinGecko ID (only non-stablecoin vaults need price conversion)
-const ASSET_COINGECKO: Record<string, string> = {
-  WETH: 'ethereum',
-  cbBTC: 'bitcoin',
-}
 export interface VaultSnapshot {
   /** 30-day APY as percentage number, e.g. 5.73 */
   apy: number
@@ -34,8 +30,10 @@ function formatUsd(val: number): string {
 }
 
 export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
+  const { data: prices } = useTokenPrices()
+
   return useQuery<VaultSnapshot>({
-    queryKey: ['vaultSnapshot', vaultAddress],
+    queryKey: ['vaultSnapshot', vaultAddress, prices?.ethereum, prices?.bitcoin],
     queryFn: async () => {
       const res = await fetch(
         `${YO_API}/api/v1/vault/base/${vaultAddress}`,
@@ -56,26 +54,10 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
       // TVL: native amount from API
       const tvlNative = parseFloat(stats.tvl?.formatted ?? '0')
 
-      // Determine asset symbol from response
-      const assetSymbol: string = json?.data?.asset?.symbol ?? ''
-      const coingeckoId = ASSET_COINGECKO[assetSymbol]
-
-      let tvlUsdRaw: number
-      if (!coingeckoId) {
-        // Stablecoin (USDC) — native amount IS USD
-        tvlUsdRaw = tvlNative
-      } else {
-        // Need price conversion
-        try {
-          const priceRes = await fetch(`${COINGECKO_API}/simple/price?ids=${coingeckoId}&vs_currencies=usd`)
-          const priceJson = await priceRes.json()
-          const price = priceJson?.[coingeckoId]?.usd ?? 0
-          tvlUsdRaw = tvlNative * price
-        } catch {
-          // Fallback: use native amount (better than 0)
-          tvlUsdRaw = tvlNative
-        }
-      }
+      // Convert to USD using shared price data
+      const priceKey = VAULT_PRICE_KEY[vaultAddress?.toLowerCase() ?? '']
+      const price = priceKey ? (prices?.[priceKey] ?? 0) : 1 // stablecoin = 1
+      const tvlUsdRaw = price > 0 ? tvlNative * price : tvlNative
 
       return {
         apy:          apy30d,
@@ -87,7 +69,7 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
       }
     },
     enabled:         !!vaultAddress,
-    staleTime:       300_000,   // 5 menit
+    staleTime:       300_000,
     refetchInterval: 300_000,
     retry:           1,
   })
