@@ -251,7 +251,7 @@ function EnterAmountContent() {
         </motion.div>
 
         {/* Yield Projection */}
-        {isValid && snapshot?.apy != null && snapshot.apy > 0 && (
+        {parsed > 0 && !isNaN(parsed) && snapshot?.apy != null && snapshot.apy > 0 && (
           <motion.div
             variants={fadeUp}
             className="bg-bg-card border border-border-default rounded-xl p-5 mt-4"
