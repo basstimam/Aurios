@@ -50,6 +50,8 @@ function SuccessContent() {
   const isQueued = searchParams.get('queued') === 'true'
   const requestId = searchParams.get('requestId') || ''
   const sharesParam = searchParams.get('shares') || ''
+  const action = searchParams.get('action') || 'deposit'
+  const isRedeem = action === 'redeem'
 
   const vault = VAULTS[vaultKey as keyof typeof VAULTS] || VAULTS.yoUSD
   // Use shares from URL (passed from deposit flow via previewDeposit result)
@@ -82,12 +84,14 @@ function SuccessContent() {
 
         {/* Heading */}
         <motion.h1 variants={fadeUp} className="font-space-grotesk text-text-primary text-3xl font-bold mb-2">
-          {isQueued ? 'Redemption Queued' : 'Deposit Successful!'}
+          {isQueued ? 'Redemption Queued' : isRedeem ? 'Redemption Successful!' : 'Deposit Successful!'}
         </motion.h1>
         <motion.p variants={fadeUp} className="text-text-secondary font-inter mb-8">
           {isQueued
             ? 'Your redemption request has been submitted. Funds will be available within 24-48 hours.'
-            : `Your funds are now earning yield in ${vault.name}`}
+            : isRedeem
+              ? `Your ${vault.name} shares have been redeemed for ${vault.assetSymbol}`
+              : `Your funds are now earning yield in ${vault.name}`}
         </motion.p>
 
         {/* Details Card */}
@@ -117,13 +121,21 @@ function SuccessContent() {
           ) : (
             <>
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
-                <span className="text-text-secondary text-sm font-inter">Amount Deposited</span>
+                <span className="text-text-secondary text-sm font-inter">{isRedeem ? 'Amount Received' : 'Amount Deposited'}</span>
                 <span className="font-roboto-mono text-text-primary text-sm">{amount} {vault.assetSymbol}</span>
               </div>
+              {!isRedeem && (
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
                 <span className="text-text-secondary text-sm font-inter">Shares Received</span>
                 <span className="font-roboto-mono text-text-primary text-sm">{displayShares} {vault.name}</span>
               </div>
+              )}
+              {isRedeem && displayShares !== '...' && (
+              <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
+                <span className="text-text-secondary text-sm font-inter">Shares Redeemed</span>
+                <span className="font-roboto-mono text-text-primary text-sm">{displayShares} {vault.name}</span>
+              </div>
+              )}
               {hasTx && (
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
                 <span className="text-text-secondary text-sm font-inter">Transaction Hash</span>
@@ -174,10 +186,10 @@ function SuccessContent() {
           <motion.button
             variants={fadeUp}
             whileTap={{ scale: 0.97 }}
-            onClick={() => router.push('/deposit/choose')}
+            onClick={() => router.push(isRedeem ? `/redeem?vault=${vaultKey}` : '/deposit/choose')}
             className="w-full py-3 rounded-lg border border-border-default text-text-secondary font-inter font-semibold hover:border-accent-amber hover:text-accent-amber transition-colors"
           >
-            Deposit More
+            {isRedeem ? 'Redeem More' : 'Deposit More'}
           </motion.button>
         </motion.div>
       </motion.div>

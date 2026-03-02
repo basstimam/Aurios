@@ -77,9 +77,9 @@ function RedeemContent() {
           estimatedAssetsVal = ((sharesFloat / maxSh) * totalAssets).toFixed(vault.decimals > 6 ? 6 : 2)
         }
       }
-      router.push(`/deposit/success?vault=${vaultKey}&amount=${estimatedAssetsVal}&txHash=${txHash}&shares=${shares}`)
+      router.push(`/deposit/success?action=redeem&vault=${vaultKey}&amount=${estimatedAssetsVal}&txHash=${txHash}&shares=${shares}`)
     } else if (redeemState === 'queued') {
-      router.push(`/deposit/success?vault=${vaultKey}&queued=true&requestId=${requestId}`)
+      router.push(`/deposit/success?action=redeem&vault=${vaultKey}&queued=true&requestId=${requestId}`)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [redeemState, txHash, requestId, vaultKey, router, vault, shares, position])
