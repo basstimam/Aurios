@@ -39,7 +39,7 @@ export function useVaultSnapshot(vaultAddress: `0x${string}` | undefined) {
   const { data: prices } = useTokenPrices()
 
   return useQuery<VaultSnapshot>({
-    queryKey: ['vaultSnapshot', vaultAddress, prices?.ethereum, prices?.bitcoin],
+    queryKey: ['vaultSnapshot', vaultAddress, prices?.ethereum, prices?.bitcoin, prices?.eur],
     queryFn: async () => {
       const res = await fetch(
         `${YO_API}/api/v1/vault/base/${vaultAddress}`,

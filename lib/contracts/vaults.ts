@@ -40,6 +40,16 @@ export const VAULTS = {
     color: '#22C55E',
     description: 'BTC yield on cbBTC',
   },
+  yoEUR: {
+    address: '0x50c749ae210d3977adc824ae11f3c7fd10c871e9' as `0x${string}`,
+    asset: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42' as `0x${string}`,
+    name: 'yoEUR',
+    symbol: 'yoEUR',
+    assetSymbol: 'EURC',
+    decimals: 6,
+    color: '#8B5CF6',
+    description: 'Euro stablecoin yield on EURC',
+  },
 } as const satisfies Record<string, VaultConfig>
 
 export type VaultKey = keyof typeof VAULTS

@@ -13,7 +13,7 @@ const PAD = { top: 16, right: 10, bottom: 8, left: 10 }
 const CHART_W = VIEWBOX_W - PAD.left - PAD.right   // 380
 const CHART_H = VIEWBOX_H - PAD.top - PAD.bottom   // 96
 
-const VAULT_KEYS: VaultKey[] = ['yoUSD', 'yoETH', 'yoBTC']
+const VAULT_KEYS: VaultKey[] = ['yoUSD', 'yoETH', 'yoBTC', 'yoEUR']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -30,8 +30,9 @@ export function YieldChart() {
   const histUSD = useVaultYieldHistory(VAULTS.yoUSD.address)
   const histETH = useVaultYieldHistory(VAULTS.yoETH.address)
   const histBTC = useVaultYieldHistory(VAULTS.yoBTC.address)
+  const histEUR = useVaultYieldHistory(VAULTS.yoEUR.address)
 
-  const histMap = { yoUSD: histUSD, yoETH: histETH, yoBTC: histBTC }
+  const histMap: Record<VaultKey, ReturnType<typeof useVaultYieldHistory>> = { yoUSD: histUSD, yoETH: histETH, yoBTC: histBTC, yoEUR: histEUR }
   const { data = [], isLoading } = histMap[activeVault]
   const vault = VAULTS[activeVault]
 

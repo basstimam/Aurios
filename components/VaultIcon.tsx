@@ -13,7 +13,7 @@ interface VaultIconProps {
 }
 
 export function VaultIcon({ symbol, assetSymbol, size = 32 }: VaultIconProps) {
-  const key = symbol ?? (assetSymbol === 'USDC' ? 'yoUSD' : assetSymbol === 'WETH' ? 'yoETH' : assetSymbol === 'cbBTC' ? 'yoBTC' : '')
+  const key = symbol ?? (assetSymbol === 'USDC' ? 'yoUSD' : assetSymbol === 'WETH' ? 'yoETH' : assetSymbol === 'cbBTC' ? 'yoBTC' : assetSymbol === 'EURC' ? 'yoEUR' : '')
   const src = VAULT_LOGOS[key]
 
   if (src) {

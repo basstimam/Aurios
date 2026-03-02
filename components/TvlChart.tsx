@@ -13,7 +13,7 @@ const PAD = { top: 16, right: 10, bottom: 8, left: 10 }
 const CHART_W = VIEWBOX_W - PAD.left - PAD.right
 const CHART_H = VIEWBOX_H - PAD.top - PAD.bottom
 
-const VAULT_KEYS: VaultKey[] = ['yoUSD', 'yoETH', 'yoBTC']
+const VAULT_KEYS: VaultKey[] = ['yoUSD', 'yoETH', 'yoBTC', 'yoEUR']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,8 +36,9 @@ export function TvlChart() {
   const histUSD = useVaultTvlHistory(VAULTS.yoUSD.address)
   const histETH = useVaultTvlHistory(VAULTS.yoETH.address)
   const histBTC = useVaultTvlHistory(VAULTS.yoBTC.address)
+  const histEUR = useVaultTvlHistory(VAULTS.yoEUR.address)
 
-  const histMap = { yoUSD: histUSD, yoETH: histETH, yoBTC: histBTC }
+  const histMap: Record<VaultKey, ReturnType<typeof useVaultTvlHistory>> = { yoUSD: histUSD, yoETH: histETH, yoBTC: histBTC, yoEUR: histEUR }
   const { data = [], isLoading } = histMap[activeVault]
   const vault = VAULTS[activeVault]
 

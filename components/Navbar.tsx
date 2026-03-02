@@ -12,6 +12,7 @@ import { VAULT_LIST } from '@/lib/contracts/vaults'
 
 const NAV_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Goals', href: '/goals' },
   { label: 'Team', href: '/team' },
   { label: 'Docs', href: '/docs' },
 ]
@@ -62,8 +63,9 @@ function TvlBadge() {
   const s0 = useVaultSnapshot(VAULT_LIST[0].address)
   const s1 = useVaultSnapshot(VAULT_LIST[1].address)
   const s2 = useVaultSnapshot(VAULT_LIST[2].address)
+  const s3 = useVaultSnapshot(VAULT_LIST[3].address)
 
-  const total = (s0.data?.tvlRaw ?? 0) + (s1.data?.tvlRaw ?? 0) + (s2.data?.tvlRaw ?? 0)
+  const total = (s0.data?.tvlRaw ?? 0) + (s1.data?.tvlRaw ?? 0) + (s2.data?.tvlRaw ?? 0) + (s3.data?.tvlRaw ?? 0)
 
   const fmt = (v: number) =>
     v >= 1_000_000_000 ? `$${(v / 1_000_000_000).toFixed(2)}B`

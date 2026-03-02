@@ -14,6 +14,7 @@ export type TxStatus     = 'pending' | 'confirmed' | 'failed'
 export type Team        = Database['public']['Tables']['teams']['Row']
 export type TeamMember  = Database['public']['Tables']['team_members']['Row']
 export type Transaction = Database['public']['Tables']['transactions']['Row']
+export type SavingsGoal = Database['public']['Tables']['savings_goals']['Row']
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generated Database types (from Supabase type generator)
@@ -33,6 +34,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      savings_goals: {
+        Row: {
+          id: string
+          wallet_address: string
+          name: string
+          vault_key: string
+          vault_address: string
+          target_usd: number
+          monthly_deposit_usd: number
+          deadline: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          wallet_address: string
+          name: string
+          vault_key: string
+          vault_address: string
+          target_usd: number
+          monthly_deposit_usd?: number
+          deadline?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          wallet_address?: string
+          name?: string
+          vault_key?: string
+          vault_address?: string
+          target_usd?: number
+          monthly_deposit_usd?: number
+          deadline?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_members: {
         Row: {
           created_at: string

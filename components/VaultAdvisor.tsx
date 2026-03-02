@@ -134,11 +134,13 @@ export function VaultAdvisor({ onSelect }: VaultAdvisorProps) {
   const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
   const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
   const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+  const { data: snapEUR } = useVaultSnapshot(VAULTS.yoEUR.address)
 
-  const snapMap = {
+  const snapMap: Partial<Record<VaultKey, typeof snapUSD>> = {
     yoUSD: snapUSD,
     yoETH: snapETH,
     yoBTC: snapBTC,
+    yoEUR: snapEUR,
   }
 
   const answeredCount = [priority, asset, horizon].filter(Boolean).length
