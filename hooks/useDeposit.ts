@@ -6,7 +6,8 @@ import { useAccount } from 'wagmi'
 import { VAULTS } from '@/lib/contracts/vaults'
 import type { VaultKey } from '@/lib/contracts/vaults'
 import { supabase } from '@/lib/supabase'
-import { formatUnits } from 'viem'
+import { formatUnits, erc20Abi, maxUint256 } from 'viem'
+import { ADDRESSES } from '@/lib/contracts/addresses'
 type DepositState = 'idle' | 'approving' | 'depositing' | 'confirming' | 'success' | 'error'
 
 export function useDeposit() {
@@ -45,31 +46,43 @@ export function useDeposit() {
 
         const amount = parseTokenAmount(amountString, vault.decimals)
 
-        // Step 1: Approve + submit deposit tx
-        const result = await yo.depositWithApproval({
+        const gatewayAddress = ADDRESSES.yoGateway
+
+        const allowance = await yo.publicClient.readContract({
+          address: vault.asset,
+          abi: erc20Abi,
+          functionName: 'allowance',
+          args: [recipient, gatewayAddress],
+        })
+
+        if (allowance < amount) {
+          const approveTx = await walletClient.writeContract({
+            address: vault.asset,
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [gatewayAddress, maxUint256],
+            account: walletClient.account!,
+            chain: walletClient.chain,
+          })
+          await yo.publicClient.waitForTransactionReceipt({ hash: approveTx })
+        }
+
+        setState('depositing')
+        const result = await yo.deposit({
           vault: vault.address,
           amount,
           recipient,
-          minShares: BigInt(0),
-          token: vault.asset,
         })
 
-        // Step 2: Wait for deposit tx confirmation
-        setState('depositing')
-        await yo.waitForTransaction(result.depositHash)
-
-        // Step 3: Confirming on-chain
         setState('confirming')
-        await yo.waitForTransaction(result.depositHash)
+        await yo.waitForTransaction(result.hash)
+        setTxHash(result.hash)
 
-        setTxHash(result.depositHash)
-
-        // Record to Supabase (non-blocking, best-effort)
         void recordDeposit({
-          wallet: walletClient.account!.address.toLowerCase(),
+          wallet: recipient.toLowerCase(),
           vault,
           amount,
-          txHash: result.depositHash,
+          txHash: result.hash,
         })
 
         setState('success')
@@ -102,6 +115,21 @@ function parseTokenAmount(amount: string, decimals: number): bigint {
 // Record deposit to Supabase (best-effort, non-blocking)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Look up the user's team_id from Supabase (returns null if not in a team) */
+async function lookupTeamId(wallet: string): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('wallet_address', wallet.toLowerCase())
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+    return data?.team_id ?? null
+  } catch {
+    return null
+  }
+}
 import type { VaultConfig } from '@/lib/contracts/vaults'
 
 async function recordDeposit({
@@ -125,7 +153,7 @@ async function recordDeposit({
 
     await supabase.from('transactions').insert({
       wallet_address: wallet,
-      team_id: null,
+      team_id: await lookupTeamId(wallet),
       vault_address: vault.address.toLowerCase(),
       vault_name: vault.name,
       vault_asset_symbol: vault.assetSymbol,
@@ -137,6 +165,6 @@ async function recordDeposit({
       confirmed_at: new Date().toISOString(),
     })
   } catch {
-    // Non-critical — don't propagate
+    // Non-critical - don't propagate
   }
 }

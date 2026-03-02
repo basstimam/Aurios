@@ -1,11 +1,17 @@
 'use client'
 
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion, type Variants } from 'framer-motion'
 import { AppLayout, StepIndicator } from '@/components'
 import { VAULTS } from '@/lib/contracts/vaults'
+import type { VaultKey } from '@/lib/contracts/vaults'
 import { useDeposit } from '@/hooks/useDeposit'
+import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
+import { RiskDisclosure } from '@/components/RiskDisclosure'
+import { toast } from 'sonner'
+import { useYoClient } from '@/hooks/useYoClient'
+import { formatUnits } from 'viem'
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 
@@ -23,38 +29,105 @@ const stagger: Variants = {
   visible: { transition: { staggerChildren: 0.06 } },
 }
 
+
+// ── PreviewContent ────────────────────────────────────────────────────────────
+
 function PreviewContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const vaultKey = searchParams.get('vault') || 'yoUSD'
+  const vaultKey = searchParams.get('vault') || ''
   const amount = searchParams.get('amount') || '0'
-  const vault = VAULTS[vaultKey as keyof typeof VAULTS] || VAULTS.yoUSD
+  // shares passed from amount page (real previewDeposit result)
+  const sharesParam = searchParams.get('shares') || ''
+  const vault = VAULTS[vaultKey as VaultKey]
 
+  // ALL hooks MUST be called before any early return
   const { deposit, state: depositState, txHash, error: depositError } = useDeposit()
-  const isLoading = depositState === 'approving' || depositState === 'depositing' || depositState === 'confirming'
+  const { data: snapshot } = useVaultSnapshot(vault?.address)
+  const { yo } = useYoClient()
+  const [showRisk, setShowRisk] = useState(false)
+  const [liveShares, setLiveShares] = useState<string | null>(null)
 
-  const estimatedShares = (parseFloat(amount) * 0.98).toFixed(4)
-  const apy = vaultKey === 'yoUSD' ? '8.4%' : vaultKey === 'yoETH' ? '5.2%' : '3.8%'
+  // Live gateway-aware quote as fallback/refresh
+  useEffect(() => {
+    if (!yo || !vault || !amount || amount === '0') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [whole = '0', frac = ''] = amount.split('.')
+        const padded = frac.padEnd(vault.decimals, '0').slice(0, vault.decimals)
+        const amountBig = BigInt(whole + padded)
+        const shares = await yo.quotePreviewDeposit(vault.address, amountBig)
+        if (!cancelled) {
+          const precision = vault.decimals > 6 ? 6 : 4
+          setLiveShares(parseFloat(formatUnits(shares, vault.decimals)).toFixed(precision))
+        }
+      } catch { /* non-critical */ }
+    })()
+    return () => { cancelled = true }
+  }, [yo, vault, amount])
 
-  const handleConfirm = async () => {
-    await deposit(vaultKey, amount)
-  }
+  // Redirect to choose if invalid vault param or missing amount
+  useEffect(() => {
+    if (!vault) router.replace('/deposit/choose')
+    else if (!amount || amount === '0' || isNaN(parseFloat(amount))) router.replace(`/deposit/amount?vault=${vaultKey}`)
+  }, [vault, router, amount, vaultKey])
 
   // Navigate on success
   useEffect(() => {
-    if (depositState === 'success' && txHash) {
-      router.push(`/deposit/success?vault=${vaultKey}&amount=${amount}&txHash=${txHash}`)
+    if (depositState === 'success' && txHash && vault) {
+      toast.success('Deposit confirmed on Base')
+      const sharesVal = sharesParam || liveShares || ''
+      const sharesQuery = sharesVal ? `&shares=${sharesVal}` : ''
+      router.push(`/deposit/success?vault=${vaultKey}&amount=${amount}&txHash=${txHash}${sharesQuery}`)
     }
-  }, [depositState, txHash, vaultKey, amount, router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [depositState, txHash, vaultKey, amount, sharesParam, router, vault])
+
+  // Toast on error
+  useEffect(() => {
+    if (depositError) toast.error(depositError)
+  }, [depositError])
+
+  // Early return AFTER all hooks
+  if (!vault || !amount || amount === '0') return <div className="min-h-screen bg-bg-page" />
+
+  const isLoading = depositState === 'approving' || depositState === 'depositing' || depositState === 'confirming'
+
+  const apy = snapshot?.apyFormatted ?? '...'
+
+  // Use sharesParam from amount page, with live gateway quote as fallback
+  const bestShares = sharesParam || liveShares || ''
+  const amountNum = parseFloat(amount)
+  const sharesNum = parseFloat(bestShares)
+  const exchangeRateStr =
+    sharesNum > 0 && amountNum > 0
+      ? `1 ${vault.assetSymbol} \u2248 ${(sharesNum / amountNum).toFixed(vault.decimals > 6 ? 6 : 4)} ${vault.name}`
+      : liveShares === null && !sharesParam
+      ? 'Calculating...'
+      : `1 ${vault.assetSymbol} \u2248 ... ${vault.name}`
+
+  const displayShares = bestShares || (liveShares === null ? 'Calculating...' : '...')
+
+  const handleConfirm = async () => {
+    setShowRisk(true)
+  }
+
+  const handleAcceptRisk = async () => {
+    setShowRisk(false)
+    toast.loading('Processing deposit...', { id: 'deposit-tx' })
+    await deposit(vaultKey, amount)
+    toast.dismiss('deposit-tx')
+  }
 
   const detailRows = [
     { label: 'Vault', value: vault.name },
     { label: 'Depositing', value: `${amount} ${vault.assetSymbol}` },
-    { label: 'You will receive', value: `${estimatedShares} ${vault.name}` },
-    { label: 'Exchange Rate', value: `1 ${vault.assetSymbol} ≈ 0.98 ${vault.name}` },
+    { label: 'You will receive', value: `${displayShares} ${vault.name}` },
+    { label: 'Exchange Rate', value: exchangeRateStr },
     { label: 'Current APY', value: apy, highlight: true },
     { label: 'Network', value: 'Base' },
-    { label: 'Estimated Gas', value: '< $0.01' },
+    { label: 'Estimated Gas', value: 'Paid in ETH (Base L2)' },
   ]
 
   return (
@@ -99,52 +172,6 @@ function PreviewContent() {
           ))}
         </motion.div>
 
-        {/* Team Approval Section (MOCK) */}
-        <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          className="bg-bg-card border border-border-default rounded-xl p-5 mb-6"
-        >
-          <h3 className="font-space-grotesk text-text-primary font-semibold mb-1">Team Approval</h3>
-          <p className="text-text-secondary text-xs font-inter mb-4">2 of 3 approvals required</p>
-          <div className="flex gap-3">
-            {/* Approved member 1 */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-border-default flex items-center justify-center text-xs text-text-primary font-bold">
-                  A
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-accent-green flex items-center justify-center">
-                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="2 6 5 9 10 3"/></svg>
-                </div>
-              </div>
-            </div>
-            {/* Approved member 2 */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-border-default flex items-center justify-center text-xs text-text-primary font-bold">
-                  S
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-accent-green flex items-center justify-center">
-                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="2 6 5 9 10 3"/></svg>
-                </div>
-              </div>
-            </div>
-            {/* Pending member 3 */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-border-default flex items-center justify-center text-xs text-text-secondary font-bold">
-                  M
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-border-strong flex items-center justify-center">
-                  <svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor" className="text-white/60" aria-hidden><circle cx="3" cy="3" r="2"/></svg>
-                </div>
-              </div>
-            </div>
-            <span className="text-text-secondary text-xs font-inter self-center ml-2">2/3 approved</span>
-          </div>
-        </motion.div>
 
         {/* Error message */}
         {depositError && (
@@ -186,6 +213,13 @@ function PreviewContent() {
         >
           ← Back to amount
         </motion.button>
+        <RiskDisclosure
+          action="deposit"
+          vaultName={vault.name}
+          isOpen={showRisk}
+          onAccept={handleAcceptRisk}
+          onCancel={() => setShowRisk(false)}
+        />
       </motion.div>
     </AppLayout>
   )

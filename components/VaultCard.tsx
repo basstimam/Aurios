@@ -1,3 +1,5 @@
+import { VaultIcon } from './VaultIcon'
+
 function CheckIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -52,12 +54,7 @@ export function VaultCard({
 
       {/* Vault Icon + Name */}
       <div className="flex items-center gap-3 mb-3">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold font-space-grotesk flex-shrink-0"
-          style={{ backgroundColor: color + '22', color }}
-        >
-          {assetSymbol[0]}
-        </div>
+        <VaultIcon assetSymbol={assetSymbol} size={36} />
         <div className="min-w-0">
           <p className="font-space-grotesk font-semibold text-text-primary text-sm truncate">{name}</p>
           <p className="text-text-tertiary text-xs font-inter">{assetSymbol}</p>
@@ -80,13 +77,13 @@ export function VaultCard({
         <div>
           <p className="text-text-tertiary text-[10px] font-inter uppercase tracking-wider mb-0.5">APY</p>
           <p className="font-roboto-mono font-medium text-accent-amber text-sm">
-            {apy ?? '—'}
+            {apy ?? '...'}
           </p>
         </div>
         <div className="text-right">
           <p className="text-text-tertiary text-[10px] font-inter uppercase tracking-wider mb-0.5">TVL</p>
           <p className="font-roboto-mono font-medium text-text-primary text-sm">
-            {tvl ?? '—'}
+            {tvl ?? '...'}
           </p>
         </div>
       </div>

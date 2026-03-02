@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80" fill="none">
+  <!-- Chevron "A" arrow -->
+  <path d="M50 2 L25 50 L35 50 L50 18 L65 50 L75 50 Z" fill="#D4940B"/>
+  <!-- Vault arch -->
+  <path d="M15 72 Q15 40 50 40 Q85 40 85 72" stroke="#D4940B" stroke-width="10" stroke-linecap="round" fill="none"/>
+</svg>

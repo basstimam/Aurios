@@ -16,5 +16,6 @@ export function useUserPosition(vaultAddress: `0x${string}`) {
     },
     enabled: !!yo && !!address && !!vaultAddress,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   })
 }

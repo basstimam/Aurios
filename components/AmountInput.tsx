@@ -41,8 +41,10 @@ export function AmountInput({
           transition-colors
         `}
       >
+        <label htmlFor="amount-input" className="sr-only">Enter amount</label>
         <input
           type="text"
+          id="amount-input"
           inputMode="decimal"
           value={value}
           onChange={handleChange}

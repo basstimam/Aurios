@@ -18,6 +18,7 @@ export function useTeam() {
     queryFn: async () => {
       if (!wallet) return null
 
+
       // Find team membership for this wallet
       const { data: membership, error: mErr } = await supabase
         .from('team_members')
@@ -25,7 +26,8 @@ export function useTeam() {
         .eq('wallet_address', wallet)
         .eq('status', 'active')
         .limit(1)
-        .single()
+        .maybeSingle()
+
 
       if (mErr || !membership) return null
 

@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
+import { usePrivy, useLogin } from '@privy-io/react-auth'
 import { motion, type Variants } from 'framer-motion'
 import { AppLayout } from '@/components'
 import { useTeam, useTeamMembers, useCreateTeam, useInviteMember, useUpdateMember } from '@/hooks/useTeam'
 import { useTeamTransactions } from '@/hooks/useTransactions'
 import type { TeamRole, TxAction } from '@/lib/supabase'
+import { useTreasuryPositions } from '@/hooks/useTreasuryPositions'
+import { VaultIcon } from '@/components/VaultIcon'
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 
@@ -29,7 +32,7 @@ const stagger: Variants = {
 
 const ROLE_BADGE: Record<TeamRole, string> = {
   admin:  'bg-amber-500/10 text-amber-500 border border-amber-500/30',
-  signer: 'bg-blue-500/10 text-blue-400 border border-blue-500/30',
+  member: 'bg-blue-500/10 text-blue-400 border border-blue-500/30',
   viewer: 'bg-border-default/30 text-text-secondary border border-border-default',
 }
 
@@ -57,6 +60,63 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`
 }
 
+// ── Treasury Overview ─────────────────────────────────────────────────────────
+
+function TreasuryOverview({ memberAddresses }: { memberAddresses: string[] }) {
+  const { data, isLoading } = useTreasuryPositions(memberAddresses)
+
+  const hasAnyPosition = data?.positions.some(p => p.totalAssets > 0n) ?? false
+
+  return (
+    <motion.div
+      variants={fadeUp}
+      className="bg-bg-card border border-border-default rounded-xl p-5 mb-8 shadow-card"
+    >
+      <h2 className="font-space-grotesk text-text-primary font-semibold mb-4">
+        Treasury Overview
+      </h2>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 py-2">
+          <div className="w-4 h-4 border-2 border-accent-amber border-t-transparent rounded-full animate-spin" />
+          <span className="font-inter text-text-secondary text-sm">Loading treasury...</span>
+        </div>
+      ) : !hasAnyPosition ? (
+        <p className="font-inter text-text-tertiary text-sm py-2">
+          No vault positions yet. Deposit to start building your treasury.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {data!.positions.map((pos) => (
+            <div
+              key={pos.vault.address}
+              className="border border-border-subtle rounded-lg p-4"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <VaultIcon symbol={pos.vault.name} size={24} />
+                <span className="font-space-grotesk text-text-primary font-semibold text-sm">{pos.vault.name}</span>
+              </div>
+              <p
+                className="font-roboto-mono text-2xl font-bold"
+                style={{ color: pos.vault.color }}
+              >
+                {pos.assetsFormatted}
+              </p>
+              <p className="font-inter text-text-secondary text-xs mt-0.5">{pos.vault.assetSymbol}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data && data.memberCount > 0 && (
+        <p className="font-inter text-text-tertiary text-xs mt-4 pt-3 border-t border-border-subtle">
+          Aggregated across {data.memberCount} team member{data.memberCount > 1 ? 's' : ''}
+        </p>
+      )}
+    </motion.div>
+  )
+}
+
 // ── Create Team Modal ──────────────────────────────────────────────────────────
 
 function CreateTeamModal({ onClose }: { onClose: () => void }) {
@@ -79,7 +139,7 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
         className="bg-bg-card border border-border-default rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl"
       >
         <h2 className="font-space-grotesk text-text-primary text-lg font-bold mb-1">Create a Team</h2>
-        <p className="font-inter text-text-secondary text-sm mb-5">Set up your DAO treasury team. You&apos;ll be the admin.</p>
+        <p className="font-inter text-text-secondary text-sm mb-5">Set up your DAO treasury dashboard. You&apos;ll be the admin.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -133,12 +193,12 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
 function InviteModal({ teamId, onClose }: { teamId: string; onClose: () => void }) {
   const [wallet, setWallet] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [role, setRole] = useState<TeamRole>('signer')
+  const [role, setRole] = useState<TeamRole>('member')
   const { mutateAsync, isPending, error } = useInviteMember()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!wallet.trim().startsWith('0x')) return
+    if (!/^0x[a-fA-F0-9]{40}$/.test(wallet.trim())) return
     await mutateAsync({ teamId, walletAddress: wallet.trim(), role, displayName: displayName.trim() || undefined })
     onClose()
   }
@@ -180,9 +240,9 @@ function InviteModal({ teamId, onClose }: { teamId: string; onClose: () => void 
               onChange={e => setRole(e.target.value as TeamRole)}
               className="w-full rounded-lg border border-border-default bg-bg-page px-3 py-2.5 font-inter text-sm text-text-primary focus:border-accent-amber focus:outline-none"
             >
-              <option value="admin">Admin — full access</option>
-              <option value="signer">Signer — can approve transactions</option>
-              <option value="viewer">Viewer — read-only</option>
+              <option value="admin">Admin -- full access</option>
+              <option value="member">Member -- can view shared dashboard</option>
+              <option value="viewer">Viewer -- read-only</option>
             </select>
           </div>
 
@@ -198,7 +258,7 @@ function InviteModal({ teamId, onClose }: { teamId: string; onClose: () => void 
             </button>
             <button
               type="submit"
-              disabled={isPending || !wallet.trim().startsWith('0x')}
+              disabled={isPending || !/^0x[a-fA-F0-9]{40}$/.test(wallet.trim())}
               className="flex-1 rounded-lg py-2.5 font-inter text-sm font-semibold disabled:opacity-50 transition-opacity hover:opacity-90"
               style={{ backgroundColor: 'var(--accent-amber)', color: '#000' }}
             >
@@ -215,6 +275,8 @@ function InviteModal({ teamId, onClose }: { teamId: string; onClose: () => void 
 
 export default function TeamPage() {
   const { isConnected, address } = useAccount()
+  const { ready } = usePrivy()
+  const { login } = useLogin()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
 
@@ -227,21 +289,35 @@ export default function TeamPage() {
   const myMembership = members.find(m => m.wallet_address === wallet)
   const isAdmin = myMembership?.role === 'admin'
 
-  // ── Not connected ────────────────────────────────────────────────────────────
+  // ── Privy still initializing (wallet reconnecting) ───────────────────────────────
+  if (!ready || (!isConnected && teamLoading)) {
+    return (
+      <AppLayout>
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10 flex items-center justify-center py-32">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-6 h-6 border-2 border-accent-amber border-t-transparent rounded-full animate-spin" />
+            <p className="font-inter text-text-secondary text-sm">Loading...</p>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // ── Not connected (only shown AFTER Privy is ready) ─────────────────────────
   if (!isConnected) {
     return (
       <AppLayout>
-        <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-10 py-10">
+        <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10">
           <motion.div variants={fadeUp} className="flex flex-col items-center justify-center py-32 gap-4">
             <div className="w-14 h-14 rounded-full bg-bg-card border border-border-default flex items-center justify-center text-text-secondary">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-            <h2 className="font-space-grotesk text-text-primary text-xl font-bold">Team Management</h2>
+            <h2 className="font-space-grotesk text-text-primary text-xl font-bold">Treasury Dashboard</h2>
             <p className="text-text-secondary font-inter text-sm text-center max-w-xs">
               Connect your wallet to view and manage your DAO treasury team.
             </p>
             <button
-              onClick={() => document.querySelector<HTMLButtonElement>('[data-rk] button')?.click()}
+              onClick={login}
               className="mt-2 rounded-lg px-5 py-2.5 font-inter text-sm font-semibold transition-opacity hover:opacity-90"
               style={{ backgroundColor: 'var(--accent-amber)', color: '#000000' }}
             >
@@ -252,12 +328,11 @@ export default function TeamPage() {
       </AppLayout>
     )
   }
-
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (teamLoading) {
     return (
       <AppLayout>
-        <div className="max-w-[1280px] mx-auto px-10 py-10 flex items-center justify-center py-32">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10 flex items-center justify-center py-32">
           <div className="flex flex-col items-center gap-3">
             <div className="w-6 h-6 border-2 border-accent-amber border-t-transparent rounded-full animate-spin" />
             <p className="font-inter text-text-secondary text-sm">Loading team…</p>
@@ -271,7 +346,7 @@ export default function TeamPage() {
   if (!team) {
     return (
       <AppLayout>
-        <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-10 py-10">
+        <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10">
           <motion.div variants={fadeUp} className="flex flex-col items-center justify-center py-24 gap-5">
             <div className="w-16 h-16 rounded-2xl bg-bg-card border border-border-default flex items-center justify-center text-accent-amber">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -279,7 +354,7 @@ export default function TeamPage() {
             <div className="text-center">
               <h2 className="font-space-grotesk text-text-primary text-xl font-bold mb-2">No Team Yet</h2>
               <p className="font-inter text-text-secondary text-sm max-w-sm">
-                Create a team to start managing your DAO treasury together. Invite signers and viewers to collaborate.
+                Create a team to share your treasury dashboard with DAO members. Invite members and viewers to monitor vault positions together.
               </p>
             </div>
             <motion.button
@@ -298,10 +373,10 @@ export default function TeamPage() {
     )
   }
 
-  // ── Has team — main view ─────────────────────────────────────────────────────
+  // ── Has team - main view ─────────────────────────────────────────────────────
   return (
     <AppLayout>
-      <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-10 py-10">
+      <motion.div variants={pageVariants} initial="hidden" animate="visible" className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10">
 
         {/* Page Header */}
         <motion.div variants={fadeUp} className="flex justify-between items-center mb-8">
@@ -333,14 +408,17 @@ export default function TeamPage() {
           )}
         </motion.div>
 
+        {/* Treasury Overview */}
+        <TreasuryOverview memberAddresses={members.filter(m => m.status === 'active').map(m => m.wallet_address)} />
+
         {/* 2-column layout */}
-        <div className="flex gap-8">
+        <div className="flex flex-col lg:flex-row gap-8">
 
           {/* LEFT COLUMN */}
           <div className="flex-1 space-y-6">
 
             {/* Team Members Table */}
-            <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
+            <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl overflow-x-auto">
               <div className="px-5 py-4 border-b border-border-subtle flex justify-between items-center">
                 <h2 className="font-space-grotesk text-text-primary font-semibold">
                   Team Members
@@ -412,7 +490,7 @@ export default function TeamPage() {
                             className="bg-transparent border border-border-subtle rounded px-1.5 py-1 font-inter text-xs text-text-secondary focus:border-accent-amber focus:outline-none"
                           >
                             <option value="admin">admin</option>
-                            <option value="signer">signer</option>
+                            <option value="member">member</option>
                             <option value="viewer">viewer</option>
                           </select>
                         </td>
@@ -425,7 +503,7 @@ export default function TeamPage() {
             </motion.div>
 
             {/* Transaction History */}
-            <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
+            <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl overflow-x-auto">
               <div className="px-5 py-4 border-b border-border-subtle">
                 <h2 className="font-space-grotesk text-text-primary font-semibold">Team Transactions</h2>
               </div>
@@ -471,7 +549,7 @@ export default function TeamPage() {
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="w-[360px] space-y-6">
+          <div className="w-full lg:w-[360px] space-y-6">
 
             {/* Team Info */}
             <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl p-5">
@@ -504,7 +582,7 @@ export default function TeamPage() {
             <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl p-5">
               <h2 className="font-space-grotesk text-text-primary font-semibold mb-4">Member Breakdown</h2>
               <div className="space-y-2.5">
-                {(['admin', 'signer', 'viewer'] as TeamRole[]).map(role => {
+                {(['admin', 'member', 'viewer'] as TeamRole[]).map(role => {
                   const count = members.filter(m => m.role === role && m.status === 'active').length
                   return (
                     <div key={role} className="flex items-center justify-between">

@@ -4,11 +4,19 @@ import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import { formatUnits } from 'viem'
 import { motion, type Variants } from 'framer-motion'
-import { AppLayout, VaultCard } from '@/components'
+import { AppLayout, VaultCard, VaultIcon } from '@/components'
 import { useVaultData } from '@/hooks/useVaultData'
 import { useUserPosition } from '@/hooks/useUserPosition'
 import { useTransactions } from '@/hooks/useTransactions'
+import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
+import { useUserPerformance } from '@/hooks/useUserPerformance'
+import { usePendingRedemptions } from '@/hooks/usePendingRedemptions'
+import { useUserHistory } from '@/hooks/useUserHistory'
+import { YieldChart } from '@/components/YieldChart'
+import { TvlChart } from '@/components/TvlChart'
 import { VAULTS, VAULT_LIST, VaultConfig } from '@/lib/contracts/vaults'
+import type { SdkHistoryEntry } from '@/hooks/useUserHistory'
+import type { Transaction } from '@/lib/supabase'
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 
@@ -28,18 +36,30 @@ const stagger: Variants = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const VAULT_APY: Record<string, string> = {
-  yoUSD: '8.4%',
-  yoETH: '5.2%',
-  yoBTC: '3.8%',
-}
-
 function fmtAssets(assets: bigint, decimals: number, symbol: string): string {
   const val = parseFloat(formatUnits(assets, decimals))
   if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M ${symbol}`
-  if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K ${symbol}`
-  const precision = 2
+  if (val >= 1_000) return `${(val / 1_000).toFixed(2)}K ${symbol}`
+  const precision = decimals === 8 ? 6 : 4
   return `${val.toLocaleString('en-US', { maximumFractionDigits: precision })} ${symbol}`
+}
+
+function fmtShares(shares: bigint, decimals: number, symbol: string): string {
+  const val = parseFloat(formatUnits(shares, decimals))
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M ${symbol}`
+  if (val >= 1_000) return `${(val / 1_000).toFixed(2)}K ${symbol}`
+  const precision = decimals === 8 ? 6 : 4
+  return `${val.toLocaleString('en-US', { maximumFractionDigits: precision })} ${symbol}`
+}
+
+function timeAgo(date: Date): string {
+  const diff = Date.now() - date.getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
 }
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
@@ -78,6 +98,7 @@ function VaultCardWrapper({
   onClick: () => void
 }) {
   const { data } = useVaultData(vault.address)
+  const { data: snapshot } = useVaultSnapshot(vault.address)
 
   return (
     <motion.div variants={fadeUp} whileHover={{ y: -4 }}>
@@ -86,7 +107,7 @@ function VaultCardWrapper({
         assetSymbol={vault.assetSymbol}
         description={vault.description}
         color={vault.color}
-        apy={VAULT_APY[vault.name] ?? '—'}
+        apy={snapshot?.apyFormatted ?? '...'}
         tvl={
           data?.totalAssets != null
             ? fmtAssets(data.totalAssets, vault.decimals, vault.assetSymbol)
@@ -106,6 +127,14 @@ function PortfolioStats() {
   const { data: posUSD } = useUserPosition(VAULTS.yoUSD.address)
   const { data: posETH } = useUserPosition(VAULTS.yoETH.address)
   const { data: posBTC } = useUserPosition(VAULTS.yoBTC.address)
+  const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
+  const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
+  const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+
+  // Feature #1: getUserPerformance for all 3 vaults
+  const { data: perfUSD } = useUserPerformance(VAULTS.yoUSD.address)
+  const { data: perfETH } = useUserPerformance(VAULTS.yoETH.address)
+  const { data: perfBTC } = useUserPerformance(VAULTS.yoBTC.address)
 
   if (!isConnected) {
     return (
@@ -115,9 +144,9 @@ function PortfolioStats() {
         animate="visible"
         className="grid grid-cols-1 sm:grid-cols-3 gap-6"
       >
-        <StatCard title="Total Balance" value="—" subtitle="Connect wallet to view" />
-        <StatCard title="Total Yield Earned" value="—" subtitle="Connect wallet to view" />
-        <StatCard title="Active Positions" value="—" subtitle="Connect wallet to view" />
+        <StatCard title="Total Balance" value="..." subtitle="Connect wallet to view" />
+        <StatCard title="Total Yield Earned" value="..." subtitle="Connect wallet to view" />
+        <StatCard title="Active Positions" value="..." subtitle="Connect wallet to view" />
       </motion.div>
     )
   }
@@ -125,6 +154,40 @@ function PortfolioStats() {
   const activeCount = [posUSD, posETH, posBTC].filter(
     (p) => p != null && p.shares > BigInt(0)
   ).length
+
+  // Estimate annual yield per vault based on APY
+  const apyRates: Record<string, number> = {
+    yoUSD: (snapUSD?.apy ?? 0) / 100,
+    yoETH: (snapETH?.apy ?? 0) / 100,
+    yoBTC: (snapBTC?.apy ?? 0) / 100,
+  }
+  const positions = [
+    { pos: posUSD, vault: VAULTS.yoUSD, key: 'yoUSD' },
+    { pos: posETH, vault: VAULTS.yoETH, key: 'yoETH' },
+    { pos: posBTC, vault: VAULTS.yoBTC, key: 'yoBTC' },
+  ]
+  // Find primary non-zero position for display
+  const primaryPos = positions.find((p) => p.pos != null && p.pos.shares > BigInt(0))
+
+  let estYieldStr = '...'
+  if (primaryPos && primaryPos.pos) {
+    const assets = parseFloat(formatUnits(primaryPos.pos.assets, primaryPos.vault.decimals))
+    const annualYield = assets * apyRates[primaryPos.key]
+    estYieldStr = `${annualYield.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${primaryPos.vault.assetSymbol}/yr`
+  }
+
+  // Feature #1: Sum unrealized P&L across all 3 vaults
+  const totalUnrealized =
+    (perfUSD?.unrealized?.raw ?? 0) +
+    (perfETH?.unrealized?.raw ?? 0) +
+    (perfBTC?.unrealized?.raw ?? 0)
+
+  const unrealizedStr =
+    activeCount === 0
+      ? '...'
+      : totalUnrealized !== 0
+      ? totalUnrealized.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+      : '...'
 
   return (
     <motion.div
@@ -134,21 +197,88 @@ function PortfolioStats() {
       className="grid grid-cols-1 sm:grid-cols-3 gap-6"
     >
       <StatCard
-        title="Total Balance"
-        value="—"
-        subtitle="Multi-asset portfolio"
-      />
-      <StatCard
-        title="Total Yield Earned"
-        value="—"
-        subtitle="Yield tracking coming soon"
-      />
-      <StatCard
         title="Active Positions"
         value={String(activeCount)}
-        subtitle="Vaults with deposits"
+        subtitle={activeCount === 1 ? '1 vault with deposits' : `${activeCount} vaults with deposits`}
+      />
+      <StatCard
+        title="Est. Annual Yield"
+        value={estYieldStr}
+        subtitle={activeCount > 1 ? 'Primary vault shown' : 'Based on current APY'}
+      />
+      <StatCard
+        title="Unrealized P&L"
+        value={unrealizedStr}
+        subtitle="Across all vault positions"
       />
     </motion.div>
+  )
+}
+
+// ── PendingRedemptionsSection ──────────────────────────────────────────────────
+
+function PendingRedemptionsSection() {
+  const { isConnected } = useAccount()
+
+  // Feature #4: ALL hooks before early return
+  const { data: pendingUSD } = usePendingRedemptions(VAULTS.yoUSD.address)
+  const { data: pendingETH } = usePendingRedemptions(VAULTS.yoETH.address)
+  const { data: pendingBTC } = usePendingRedemptions(VAULTS.yoBTC.address)
+
+  if (!isConnected) return null
+
+  const allPending = [
+    { vault: VAULTS.yoUSD, data: pendingUSD },
+    { vault: VAULTS.yoETH, data: pendingETH },
+    { vault: VAULTS.yoBTC, data: pendingBTC },
+  ].filter((p) => p.data != null && (p.data.shares?.raw ?? 0) > 0)
+
+  if (allPending.length === 0) return null
+
+  return (
+    <motion.section variants={fadeUp} initial="hidden" animate="visible">
+      <motion.div
+        className="bg-bg-card border border-border-default rounded-xl p-5"
+        style={{ borderColor: 'rgba(245,158,11,0.4)' }}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          {/* Pulsing amber indicator */}
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-amber opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent-amber" />
+          </span>
+          <h3 className="font-space-grotesk text-text-primary font-semibold">Pending Redemptions</h3>
+          <span className="font-inter text-text-tertiary text-xs">Processing…</span>
+        </div>
+
+        <div className="space-y-3">
+          {allPending.map(({ vault, data }) => (
+            <div
+              key={vault.address}
+              className="flex items-center justify-between p-3 bg-bg-card-hover rounded-lg border border-border-subtle"
+            >
+              <div className="flex items-center gap-3">
+                <VaultIcon symbol={vault.name} size={28} />
+                <div>
+                  <p className="font-space-grotesk text-text-primary text-sm font-semibold">
+                    {vault.name}
+                  </p>
+                  <p className="font-inter text-text-tertiary text-xs">
+                    {data?.shares?.formatted ?? '...'} shares queued
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-roboto-mono text-text-primary text-sm">
+                  ~{data?.assets?.formatted ?? '...'} {vault.assetSymbol}
+                </p>
+                <p className="font-inter text-text-tertiary text-xs">estimated receive</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </motion.section>
   )
 }
 
@@ -165,6 +295,15 @@ function PositionsTable() {
   const { data: dataUSD } = useVaultData(VAULTS.yoUSD.address)
   const { data: dataETH } = useVaultData(VAULTS.yoETH.address)
   const { data: dataBTC } = useVaultData(VAULTS.yoBTC.address)
+
+  const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
+  const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
+  const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+  const snapshots: Record<string, string> = {
+    [VAULTS.yoUSD.address]: snapUSD?.apyFormatted ?? '...',
+    [VAULTS.yoETH.address]: snapETH?.apyFormatted ?? '...',
+    [VAULTS.yoBTC.address]: snapBTC?.apyFormatted ?? '...',
+  }
 
   if (!isConnected) {
     return (
@@ -215,11 +354,11 @@ function PositionsTable() {
   }
 
   return (
-    <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
-      <table className="w-full">
+    <div className="bg-bg-card border border-border-default rounded-xl overflow-x-auto">
+      <table className="w-full min-w-[640px]">
         <thead>
           <tr className="border-b border-border-subtle">
-            {['Vault', 'Deposited', 'Current Value', 'Yield', 'APY', 'Actions'].map((col) => (
+            {['Vault', 'Shares Held', 'Asset Value', 'Est. Yield/yr', 'APY', 'Actions'].map((col) => (
               <th
                 key={col}
                 className="text-text-secondary text-sm font-inter font-normal text-left px-6 py-4 first:pl-5"
@@ -231,8 +370,8 @@ function PositionsTable() {
         </thead>
         <motion.tbody variants={stagger} initial="hidden" animate="visible">
           {activeRows.map(({ vault, position }) => {
-            const depositedStr = fmtAssets(position.assets, vault.decimals, vault.assetSymbol)
-            const apyStr = VAULT_APY[vault.name] ?? '—'
+            const sharesStr = fmtShares(position.shares, vault.decimals, vault.name)
+            const apyStr = snapshots[vault.address] ?? '...'
 
             return (
               <motion.tr
@@ -243,15 +382,7 @@ function PositionsTable() {
                 {/* Vault */}
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold font-space-grotesk"
-                      style={{
-                        backgroundColor: `${vault.color}22`,
-                        color: vault.color,
-                      }}
-                    >
-                      {vault.assetSymbol[0]}
-                    </div>
+                    <VaultIcon symbol={vault.name} size={32} />
                     <div>
                       <p className="font-space-grotesk text-sm font-semibold text-text-primary">
                         {vault.name}
@@ -266,20 +397,20 @@ function PositionsTable() {
                 {/* Deposited */}
                 <td className="px-6 py-4">
                   <span className="font-roboto-mono text-sm text-text-primary">
-                    {depositedStr}
+                    {sharesStr}
                   </span>
                 </td>
 
                 {/* Current Value */}
                 <td className="px-6 py-4">
                   <span className="font-roboto-mono text-sm text-text-primary">
-                    {depositedStr}
+                    {fmtAssets(position.assets, vault.decimals, vault.assetSymbol)}
                   </span>
                 </td>
 
                 {/* Yield */}
                 <td className="px-6 py-4">
-                  <span className="font-roboto-mono text-sm text-text-secondary">—</span>
+                  <span className="font-roboto-mono text-sm text-text-secondary">{(() => { const a = parseFloat(formatUnits(position.assets, vault.decimals)); const rate = parseFloat((snapshots[vault.address] ?? '0%').replace('%','')); const y = a * (rate/100); return y > 0 ? `${y.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${vault.assetSymbol}` : '...' })()}</span>
                 </td>
 
                 {/* APY */}
@@ -301,6 +432,7 @@ function PositionsTable() {
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.97 }}
+                      onClick={() => router.push(`/redeem?vault=${vault.name}`)}
                       className="border border-border-default text-text-secondary px-4 py-2 rounded-lg hover:border-accent-amber hover:text-accent-amber text-sm transition-colors"
                     >
                       Withdraw
@@ -316,13 +448,92 @@ function PositionsTable() {
   )
 }
 
-// ── TxHistorySection ────────────────────────────────────────────────────────────────────────
+// ── TxHistorySection ──────────────────────────────────────────────────────────
+
+// Unified display type for merged Supabase + SDK history
+interface DisplayTx {
+  id: string
+  action: string
+  vaultName: string
+  amountDisplay: string
+  txHash: string | null
+  timestamp: Date
+  source: 'supabase' | 'sdk'
+}
+
+function normalizeSdkEntry(
+  entry: SdkHistoryEntry,
+  vaultName: string
+): DisplayTx {
+  return {
+    id: entry.txHash ? `sdk-${entry.txHash}` : `sdk-${entry.timestamp}-${vaultName}`,
+    action: entry.type,
+    vaultName,
+    amountDisplay: entry.amount?.formatted ?? '...',
+    txHash: entry.txHash || null,
+    timestamp: new Date(entry.timestamp * 1000),
+    source: 'sdk',
+  }
+}
+
+function normalizeSupabaseTx(tx: Transaction): DisplayTx {
+  return {
+    id: tx.id,
+    action: tx.action,
+    vaultName: tx.vault_name,
+    amountDisplay: tx.amount_display,
+    txHash: tx.tx_hash,
+    timestamp: new Date(tx.created_at),
+    source: 'supabase',
+  }
+}
 
 function TxHistorySection() {
   const { isConnected } = useAccount()
   const { data: txs = [], isLoading } = useTransactions(10)
 
+  // Feature #6: SDK history for all 3 vaults - hooks BEFORE early return
+  const { data: histUSD = [] } = useUserHistory(VAULTS.yoUSD.address)
+  const { data: histETH = [] } = useUserHistory(VAULTS.yoETH.address)
+  const { data: histBTC = [] } = useUserHistory(VAULTS.yoBTC.address)
+
   if (!isConnected) return null
+
+  // Normalize & merge
+  const supabaseTxs: DisplayTx[] = txs.map(normalizeSupabaseTx)
+  const sdkTxs: DisplayTx[] = [
+    ...histUSD.map((e) => normalizeSdkEntry(e, 'yoUSD')),
+    ...histETH.map((e) => normalizeSdkEntry(e, 'yoETH')),
+    ...histBTC.map((e) => normalizeSdkEntry(e, 'yoBTC')),
+  ]
+
+  // Merge with deduplication by txHash
+  const seenHashes = new Set<string>()
+  const merged: DisplayTx[] = []
+
+  // Supabase entries take precedence (added first)
+  for (const tx of supabaseTxs) {
+    if (tx.txHash) {
+      const key = tx.txHash.toLowerCase()
+      if (seenHashes.has(key)) continue
+      seenHashes.add(key)
+    }
+    merged.push(tx)
+  }
+
+  // SDK entries fill gaps
+  for (const tx of sdkTxs) {
+    if (tx.txHash) {
+      const key = tx.txHash.toLowerCase()
+      if (seenHashes.has(key)) continue
+      seenHashes.add(key)
+    }
+    merged.push(tx)
+  }
+
+  const sorted = merged
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    .slice(0, 20)
 
   return (
     <section>
@@ -340,17 +551,17 @@ function TxHistorySection() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
-        className="bg-bg-card border border-border-default rounded-xl overflow-hidden"
+        className="bg-bg-card border border-border-default rounded-xl overflow-x-auto"
       >
         {isLoading ? (
           <div className="px-5 py-10 text-center font-inter text-text-tertiary text-sm">Loading transactions…</div>
-        ) : txs.length === 0 ? (
+        ) : sorted.length === 0 ? (
           <div className="px-5 py-10 text-center">
             <p className="font-inter text-text-tertiary text-sm">No transactions yet</p>
             <p className="font-inter text-text-tertiary text-xs mt-1">Your deposits and redeems will appear here</p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[560px]">
             <thead>
               <tr className="border-b border-border-subtle">
                 <th className="text-left px-5 py-3 text-text-secondary text-xs font-inter uppercase tracking-wider">Action</th>
@@ -361,45 +572,42 @@ function TxHistorySection() {
               </tr>
             </thead>
             <motion.tbody variants={stagger} initial="hidden" animate="visible">
-              {txs.map((tx) => (
+              {sorted.map((entry) => (
                 <motion.tr
-                  key={tx.id}
+                  key={entry.id}
                   variants={fadeUp}
                   className="border-b border-border-subtle last:border-0 hover:bg-bg-card-hover transition-colors"
                 >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${tx.action === 'deposit' ? 'bg-accent-amber' : 'bg-blue-400'}`} />
-                      <span className="font-inter text-sm text-text-primary capitalize">{tx.action}</span>
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${entry.action === 'deposit' ? 'bg-accent-amber' : 'bg-blue-400'}`} />
+                      <span className="font-inter text-sm text-text-primary capitalize">{entry.action}</span>
+                      {entry.source === 'sdk' && (
+                        <span className="font-inter text-[10px] text-text-tertiary border border-border-subtle px-1 rounded">
+                          onchain
+                        </span>
+                      )}
                     </div>
                   </td>
-                  <td className="px-5 py-4 font-space-grotesk text-sm text-text-primary font-semibold">{tx.vault_name}</td>
-                  <td className="px-5 py-4 font-roboto-mono text-sm text-text-primary">{tx.amount_display}</td>
+                  <td className="px-5 py-4 font-space-grotesk text-sm text-text-primary font-semibold">{entry.vaultName}</td>
+                  <td className="px-5 py-4 font-roboto-mono text-sm text-text-primary">{entry.amountDisplay}</td>
                   <td className="px-5 py-4">
-                    {tx.tx_hash ? (
+                    {entry.txHash ? (
                       <a
-                        href={`https://basescan.org/tx/${tx.tx_hash}`}
+                        href={`https://basescan.org/tx/${entry.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-roboto-mono text-xs text-accent-amber hover:underline"
                       >
-                        {tx.tx_hash.slice(0, 8)}…
+                        {entry.txHash.slice(0, 8)}…
                       </a>
                     ) : (
-                      <span className="font-roboto-mono text-xs text-text-tertiary">—</span>
+                      <span className="font-roboto-mono text-xs text-text-tertiary">...</span>
                     )}
                   </td>
                   <td className="px-5 py-4 text-text-tertiary text-xs font-inter">
-                    {(() => {
-                      const diff = Date.now() - new Date(tx.created_at).getTime()
-                      const m = Math.floor(diff / 60000)
-                      if (m < 1) return 'just now'
-                      if (m < 60) return `${m}m ago`
-                      const h = Math.floor(m / 60)
-                      if (h < 24) return `${h}h ago`
-                      return `${Math.floor(h / 24)}d ago`
-                    })()
-                  }</td>
+                    {timeAgo(entry.timestamp)}
+                  </td>
                 </motion.tr>
               ))}
             </motion.tbody>
@@ -421,7 +629,7 @@ export default function DashboardPage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        className="max-w-[1280px] mx-auto px-10 py-10 space-y-10"
+        className="max-w-[1280px] mx-auto px-4 sm:px-10 py-10 space-y-10"
       >
 
         {/* ── Portfolio Summary ─────────────────────────────────────────────── */}
@@ -436,6 +644,28 @@ export default function DashboardPage() {
           </motion.h2>
           <PortfolioStats />
         </section>
+
+        {/* ── Pending Redemptions (Feature #4) ──────────────────────────────── */}
+        <PendingRedemptionsSection />
+
+        {/* ── APY Yield Chart (Feature #3) ──────────────────────────────────── */}
+        <motion.section
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
+          <motion.h2
+            variants={fadeUp}
+            className="font-space-grotesk text-text-primary text-xl font-bold mb-4"
+          >
+            Yield Performance
+          </motion.h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <YieldChart />
+            <TvlChart />
+          </div>
+        </motion.section>
 
         {/* ── Available Vaults ──────────────────────────────────────────────── */}
         <section>
@@ -453,7 +683,7 @@ export default function DashboardPage() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
           >
             {VAULT_LIST.map((vault) => (
               <VaultCardWrapper
@@ -465,7 +695,7 @@ export default function DashboardPage() {
             <motion.div variants={fadeUp} whileHover={{ y: -4 }}>
               <VaultCard
                 name="More Coming Soon"
-                assetSymbol="—"
+                assetSymbol="..."
                 description="New yield opportunities being added"
                 color="#6B625A"
                 isDisabled

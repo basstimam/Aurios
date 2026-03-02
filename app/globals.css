@@ -28,15 +28,15 @@
   --bg-card: #0D0E15;
   --bg-card-hover: #141519;
   --text-primary: #F4EFE8;
-  --text-secondary: #9B9081;
-  --text-tertiary: #6B625A;
+  --text-secondary: #B8AFA5;
+  --text-tertiary: #9A918A;
   --accent-amber: #F59E0B;
   --accent-amber-hover: #D97706;
   --accent-green: #22C55E;
   --accent-red: #EF4444;
   --accent-blue: #3B82F6;
-  --border-subtle: #1C1D27;
-  --border-default: #252838;
+  --border-subtle: #252838;
+  --border-default: #353848;
   --border-strong: #374151;
   --shadow-card: 0 1px 3px rgba(0,0,0,0.4);
   --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.5);
@@ -79,7 +79,7 @@ body {
   }
 }
 
-/* Number focus — tabular nums on all mono elements */
+/* Number focus - tabular nums on all mono elements */
 .font-roboto-mono {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';

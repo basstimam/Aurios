@@ -22,7 +22,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light')
 
   useEffect(() => {
-    const stored = localStorage.getItem('smelt-theme') as Theme | null
+    const stored = localStorage.getItem('aurios-theme') as Theme | null
     if (stored === 'dark' || stored === 'light') {
       setTheme(stored)
       document.documentElement.setAttribute('data-theme', stored)
@@ -35,7 +35,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const next: Theme = theme === 'light' ? 'dark' : 'light'
     setTheme(next)
     document.documentElement.setAttribute('data-theme', next)
-    localStorage.setItem('smelt-theme', next)
+    localStorage.setItem('aurios-theme', next)
   }
 
   return (

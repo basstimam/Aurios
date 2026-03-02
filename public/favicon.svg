@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+  <!-- Amber background with rounded corners -->
+  <rect width="32" height="32" rx="6" fill="#F59E0B"/>
+  <!-- Chevron "A" arrow -->
+  <path d="M16 5 L9 18 L12.5 18 L16 11 L19.5 18 L23 18 Z" fill="#fff"/>
+  <!-- Vault arch -->
+  <path d="M8 25 Q8 16 16 16 Q24 16 24 25" stroke="#fff" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+</svg>

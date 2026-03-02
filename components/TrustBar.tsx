@@ -1,3 +1,8 @@
+'use client'
+
+import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
+import { VAULT_LIST } from '@/lib/contracts/vaults'
+
 function LockIcon() {
   return (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
@@ -24,7 +29,35 @@ function ChainIcon() {
   )
 }
 
+function useTotalTvl(): string {
+  const s0 = useVaultSnapshot(VAULT_LIST[0].address)
+  const s1 = useVaultSnapshot(VAULT_LIST[1].address)
+  const s2 = useVaultSnapshot(VAULT_LIST[2].address)
+
+  const tvls = [s0.data?.tvlUsd, s1.data?.tvlUsd, s2.data?.tvlUsd]
+
+  // Parse "$35.7M" → number in dollars
+  function parseTvl(s: string | undefined): number {
+    if (!s) return 0
+    const clean = s.replace(/[$,]/g, '')
+    if (clean.endsWith('B')) return parseFloat(clean) * 1_000_000_000
+    if (clean.endsWith('M')) return parseFloat(clean) * 1_000_000
+    if (clean.endsWith('K')) return parseFloat(clean) * 1_000
+    return parseFloat(clean) || 0
+  }
+
+  const total = tvls.reduce((sum, t) => sum + parseTvl(t), 0)
+
+  if (total === 0) return '...'
+  if (total >= 1_000_000_000) return `$${(total / 1_000_000_000).toFixed(2)}B`
+  if (total >= 1_000_000) return `$${(total / 1_000_000).toFixed(1)}M`
+  if (total >= 1_000) return `$${(total / 1_000).toFixed(1)}K`
+  return `$${total.toFixed(0)}`
+}
+
 export function TrustBar() {
+  const totalTvl = useTotalTvl()
+
   return (
     <div className="flex items-center justify-center py-2 px-6 bg-bg-card border-b border-border-subtle">
       <div className="flex items-center gap-4 text-xs font-inter text-text-secondary">
@@ -47,7 +80,7 @@ export function TrustBar() {
           className="font-medium px-2 py-0.5 rounded-full text-[11px]"
           style={{ backgroundColor: 'rgba(217,119,6,0.12)', color: 'var(--accent-amber)' }}
         >
-          $14.7M TVL Protected
+          {totalTvl} TVL Protected
         </span>
       </div>
     </div>

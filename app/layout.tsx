@@ -25,9 +25,27 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Smelt — DeFi Savings for DAO Treasuries",
-  description: "Team-based DeFi savings on Base chain via YO Protocol",
-};
+  title: "Aurios | DeFi Savings for DAO Treasuries",
+  description: "Institutional-grade savings for DAO treasuries. Deploy treasury funds into audited YO Protocol vaults. Earn real yield. Stay in control.",
+  metadataBase: new URL('https://aurios.finance'),
+  openGraph: {
+    title: 'Aurios | DeFi Savings for DAO Treasuries',
+    description: 'Institutional-grade savings for DAO treasuries. Earn real yield on YO Protocol vaults.',
+    type: 'website',
+    siteName: 'Aurios',
+    images: [{ url: '/og-image.svg', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Aurios | DeFi Savings for DAO Treasuries',
+    description: 'Institutional-grade savings for DAO treasuries. Earn real yield on YO Protocol vaults.',
+    images: ['/og-image.svg'],
+  },
+  keywords: ['DeFi', 'DAO', 'treasury', 'savings', 'YO Protocol', 'Base', 'yield'],
+  icons: {
+    icon: '/favicon.svg',
+  },
+}
 
 export default function RootLayout({
   children,

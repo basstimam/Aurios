@@ -3,11 +3,16 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion, type Variants } from 'framer-motion'
+import { useReadContract } from 'wagmi'
+import { erc20Abi, formatUnits } from 'viem'
+import { useAccount } from 'wagmi'
 import { AppLayout, StepIndicator, AmountInput } from '@/components'
 import { VAULTS } from '@/lib/contracts/vaults'
 import type { VaultKey } from '@/lib/contracts/vaults'
 import { useYoClient } from '@/hooks/useYoClient'
-import { formatUnits } from 'viem'
+import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
+import { useVaultPaused } from '@/hooks/useVaultPaused'
+import { VaultIcon } from '@/components/VaultIcon'
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 
@@ -21,22 +26,23 @@ const fadeUp: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 }
 
-// ── Data ──────────────────────────────────────────────────────────────────────
+// ── Vault Info text ───────────────────────────────────────────────────────────
 
-const AI_ADVISOR_TEXT: Record<string, string> = {
-  yoUSD:
-    'Based on current market conditions, yoUSD offers the best risk-adjusted yield for stablecoin deposits. The protocol maintains a consistent 8.4% APY with minimal volatility. Recommended allocation: 100% of stablecoin reserves.',
-  yoETH:
-    'yoETH provides competitive ETH staking yield at 5.2% APY. Ideal for DAOs with long-term ETH holdings seeking passive income without selling exposure. Consider allocating 50-70% of ETH treasury.',
-  yoBTC:
-    'yoBTC offers 3.8% APY on Bitcoin holdings via cbBTC. Conservative yield strategy suitable for DAOs prioritizing BTC preservation. Recommended for 30-50% of BTC reserves.',
+function getVaultInfo(vaultKey: string, apyFormatted?: string): string {
+  const apy = apyFormatted ?? '...'
+  switch (vaultKey) {
+    case 'yoUSD':
+      return `yoUSD earns yield on USDC deposits via YO Protocol. Current APY is ${apy}, paid continuously in yoUSD shares which appreciate against USDC over time. Suitable for stablecoin treasury reserves seeking passive yield.`
+    case 'yoETH':
+      return `yoETH generates ETH staking yield on WETH deposits. Current APY is ${apy}. Shares appreciate in WETH terms. Ideal for DAOs holding long-term ETH positions seeking yield without selling exposure.`
+    case 'yoBTC':
+      return `yoBTC earns yield on cbBTC (Coinbase BTC) deposits. Current APY is ${apy}. Shares accumulate value in BTC terms. Conservative yield strategy for DAOs preserving BTC treasury value on Base.`
+    default:
+      return `This vault earns yield via YO Protocol at ${apy} APY. Shares appreciate over time relative to the deposited asset.`
+  }
 }
 
-const MOCK_APY: Record<string, string> = {
-  yoUSD: '8.4%',
-  yoETH: '5.2%',
-  yoBTC: '3.8%',
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Parse a decimal string to bigint with correct decimals */
 function parseTokenAmount(amount: string, decimals: number): bigint {
@@ -51,46 +57,69 @@ function formatShares(shares: bigint, decimals: number): string {
   return parseFloat(formatUnits(shares, decimals)).toFixed(precision)
 }
 
-// ── AI Advisor Icon ───────────────────────────────────────────────────────────
+// ── Info Icon ─────────────────────────────────────────────────────────────────
 
-function AdvisorIcon() {
+function InfoIcon() {
   return (
-    <svg
-      className="w-4 h-4 text-accent-amber flex-shrink-0"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
+    <svg className="w-4 h-4 text-accent-amber flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
       />
     </svg>
   )
 }
 
+// ── Main Content ──────────────────────────────────────────────────────────────
+
 function EnterAmountContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const vaultKey = searchParams.get('vault') || 'yoUSD'
-  const vault = VAULTS[vaultKey as VaultKey] || VAULTS.yoUSD
+  const vaultKey = searchParams.get('vault') || ''
+  const vault = VAULTS[vaultKey as VaultKey]
 
   const [amount, setAmount] = useState('')
-  const [estimatedShares, setEstimatedShares] = useState('—')
+  const [estimatedShares, setEstimatedShares] = useState('...')
   const [previewing, setPreviewing] = useState(false)
-  const mockBalance = '1,000.00'
-
   const { yo } = useYoClient()
+  const { address } = useAccount()
+  const { data: snapshot } = useVaultSnapshot(vault?.address)
+  const { data: isPaused } = useVaultPaused(vault?.address)
+
+  // Real ERC20 balance of underlying asset
+  const { data: balanceRaw } = useReadContract({
+    address: vault?.asset as `0x${string}`,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!vault },
+  })
+
+  const balanceStr =
+    balanceRaw != null && vault
+      ? parseFloat(formatUnits(balanceRaw as bigint, vault.decimals)).toFixed(
+          vault.decimals > 6 ? 6 : 2
+        )
+      : '...'
 
   const parsed = parseFloat(amount)
-  const isValid = !isNaN(parsed) && parsed > 0
+  const isValid =
+    !!vault && !isNaN(parsed) && parsed > 0 && (balanceRaw == null || parsed <= parseFloat(balanceStr))
+
+  const insufficientBalance =
+    balanceRaw != null && !isNaN(parsed) && parsed > 0 && parsed > parseFloat(balanceStr)
+
+  // Redirect to choose if invalid vault param
+  useEffect(() => {
+    if (!vault) router.replace('/deposit/choose')
+  }, [vault, router])
 
   // Real previewDeposit with 500ms debounce
   useEffect(() => {
-    if (!isValid) {
-      setEstimatedShares('—')
+    if (!isValid || !vault) {
+      setEstimatedShares('...')
       return
     }
 
@@ -99,14 +128,14 @@ function EnterAmountContent() {
       try {
         if (yo) {
           const amountBig = parseTokenAmount(amount, vault.decimals)
-          const shares = await yo.previewDeposit(vault.address, amountBig)
+          const shares = await yo.quotePreviewDeposit(vault.address, amountBig)
           setEstimatedShares(formatShares(shares, vault.decimals))
         } else {
-          // Fallback if wallet not connected: show approximate
-          setEstimatedShares((parsed * 0.98).toFixed(vault.decimals > 6 ? 6 : vault.decimals))
+          // No preview without SDK - show placeholder
+          setEstimatedShares('...')
         }
       } catch {
-        setEstimatedShares('—')
+        setEstimatedShares('...')
       } finally {
         setPreviewing(false)
       }
@@ -115,9 +144,20 @@ function EnterAmountContent() {
     return () => clearTimeout(timer)
   }, [amount, isValid, yo, vault, parsed])
 
+  // Exchange rate derived from actual previewDeposit result
+  const exchangeRateStr =
+    estimatedShares !== '...' && parsed > 0
+      ? `1 ${vault.assetSymbol} ≈ ${(parseFloat(estimatedShares) / parsed).toFixed(
+          vault.decimals > 6 ? 6 : 4
+        )} ${vault.name}`
+      : previewing
+      ? 'Calculating...'
+      : `1 ${vault.assetSymbol} ≈ ... ${vault.name}`
+
   const handleContinue = () => {
     if (isValid) {
-      router.push(`/deposit/preview?vault=${vaultKey}&amount=${amount}`)
+      const sharesParam = estimatedShares !== '...' ? `&shares=${estimatedShares}` : ''
+      router.push(`/deposit/preview?vault=${vaultKey}&amount=${amount}${sharesParam}`)
     }
   }
 
@@ -143,12 +183,7 @@ function EnterAmountContent() {
 
         {/* Vault context label */}
         <motion.div variants={fadeUp} className="flex items-center gap-2 mb-6">
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black"
-            style={{ backgroundColor: vault.color }}
-          >
-            {vault.assetSymbol[0]}
-          </div>
+          <VaultIcon assetSymbol={vault.assetSymbol} size={24} />
           <span className="text-text-primary font-inter text-sm">
             Depositing to{' '}
             <span className="font-semibold" style={{ color: vault.color }}>
@@ -163,8 +198,13 @@ function EnterAmountContent() {
             onChange={setAmount}
             symbol={vault.assetSymbol}
             decimals={vault.decimals}
-            balance={mockBalance}
-            onMax={() => setAmount('1000')}
+            balance={balanceStr}
+            onMax={() =>
+              balanceRaw != null
+                ? setAmount(formatUnits(balanceRaw as bigint, vault.decimals))
+                : undefined
+            }
+            error={insufficientBalance ? 'Insufficient balance' : undefined}
           />
         </motion.div>
 
@@ -174,9 +214,7 @@ function EnterAmountContent() {
           className="bg-bg-card border border-border-default rounded-xl p-5 mt-4 space-y-3"
         >
           <div className="flex justify-between">
-            <span className="text-text-secondary text-sm font-inter">
-              You will receive
-            </span>
+            <span className="text-text-secondary text-sm font-inter">You will receive</span>
             <span className="font-roboto-mono text-text-primary text-sm">
               {previewing ? (
                 <span className="text-text-secondary animate-pulse">Calculating...</span>
@@ -186,39 +224,36 @@ function EnterAmountContent() {
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-secondary text-sm font-inter">
-              Exchange rate
-            </span>
+            <span className="text-text-secondary text-sm font-inter">Exchange rate</span>
             <span className="font-roboto-mono text-text-primary text-sm">
-              1 {vault.assetSymbol} ≈ 0.98 {vault.name}
+              {previewing ? (
+                <span className="text-text-secondary animate-pulse">Calculating...</span>
+              ) : (
+                exchangeRateStr
+              )}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-secondary text-sm font-inter">
-              Current APY
-            </span>
+            <span className="text-text-secondary text-sm font-inter">Current APY</span>
             <span className="font-roboto-mono text-accent-amber text-sm font-bold">
-              {MOCK_APY[vaultKey] || MOCK_APY.yoUSD}
+              {snapshot?.apyFormatted ?? '...'}
             </span>
           </div>
         </motion.div>
 
-        {/* AI Advisor card */}
+        {/* Vault Info card */}
         <motion.div
           variants={fadeUp}
           className="bg-bg-card border border-border-default rounded-xl p-5 mt-4"
         >
           <div className="flex items-center gap-2 mb-3">
-            <AdvisorIcon />
+            <InfoIcon />
             <span className="font-space-grotesk text-text-primary font-semibold text-sm">
-              AI Vault Advisor
+              Vault Info
             </span>
           </div>
           <p className="text-text-secondary text-sm font-inter leading-relaxed">
-            {AI_ADVISOR_TEXT[vaultKey] || AI_ADVISOR_TEXT.yoUSD}
-          </p>
-          <p className="text-text-tertiary text-xs font-inter mt-3">
-            AI suggestions are for reference only. Not financial advice.
+            {getVaultInfo(vaultKey, snapshot?.apyFormatted)}
           </p>
         </motion.div>
 
@@ -227,14 +262,35 @@ function EnterAmountContent() {
           variants={fadeUp}
           whileTap={{ scale: 0.97 }}
           onClick={handleContinue}
-          disabled={!isValid}
+          disabled={!isValid || isPaused === true}
           className={`w-full mt-6 py-3 rounded-lg font-semibold font-inter transition-colors ${
-            isValid
+            isValid && !isPaused
               ? 'bg-accent-amber text-black hover:bg-accent-amber-dark'
               : 'bg-accent-amber text-black opacity-40 cursor-not-allowed'
           }`}
         >
-          Continue to Preview →
+          {isPaused ? 'Vault is currently paused' : 'Continue to Preview →'}
+        </motion.button>
+
+        {/* Vault paused message */}
+        {isPaused && (
+          <motion.p
+            variants={fadeUp}
+            className="text-center font-inter text-sm mt-2"
+            style={{ color: '#F59E0B' }}
+          >
+            This vault is currently paused. Deposits are temporarily disabled.
+          </motion.p>
+        )}
+
+        {/* Back link */}
+        <motion.button
+          variants={fadeUp}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => router.push('/deposit/choose')}
+          className="w-full mt-3 text-center text-text-secondary text-sm font-inter hover:text-text-primary transition-colors"
+        >
+          ← Back to vault selection
         </motion.button>
       </motion.div>
     </AppLayout>
@@ -243,11 +299,7 @@ function EnterAmountContent() {
 
 export default function EnterAmountPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-bg-page" />
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen bg-bg-page" />}>
       <EnterAmountContent />
     </Suspense>
   )

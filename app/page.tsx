@@ -1,28 +1,15 @@
 'use client'
 
-import { motion, Variants, useInView } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { motion, Variants } from 'framer-motion'
 import Link from 'next/link'
+import { formatUnits } from 'viem'
+import { useVaultData } from '@/hooks/useVaultData'
+import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
+import { VAULTS } from '@/lib/contracts/vaults'
+
+import { VaultIcon } from '@/components/VaultIcon'
 
 /* ── SVG Icons ──────────────────────────────────────────────────────── */
-function HexLogo({ size = 22 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 22 22" fill="none">
-      <path
-        d="M11 2L19.66 7v10L11 22 2.34 17V7L11 2z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M7 11h8M11 7v8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
 
 function ShieldIcon() {
   return (
@@ -132,26 +119,12 @@ const fadeLeft: Variants = {
   visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 }
 
-/* ── Count-Up Hook ──────────────────────────────────────────────────── */
-function useCountUp(target: number, duration: number = 1500) {
-  const [count, setCount] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-50px' })
-
-  useEffect(() => {
-    if (!inView) return
-    const start = Date.now()
-    const tick = () => {
-      const elapsed = Date.now() - start
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setCount(Math.round(eased * target))
-      if (progress < 1) requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-  }, [inView, target, duration])
-
-  return { count, ref }
+/* ── TVL Formatter ──────────────────────────────────────────────── */
+function fmtTVL(assets: bigint, decimals: number, symbol: string): string {
+  const val = parseFloat(formatUnits(assets, decimals))
+  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M ${symbol}`
+  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}K ${symbol}`
+  return `${val.toFixed(2)} ${symbol}`
 }
 
 /* ── LandingNavbar ──────────────────────────────────────────────────── */
@@ -164,18 +137,20 @@ function LandingNavbar() {
       className="sticky top-0 z-50 border-b border-border-subtle bg-bg-page"
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2 text-accent-amber">
-          <HexLogo size={22} />
-          <span className="font-space-grotesk text-lg font-bold text-text-primary tracking-tight">
-            Smelt
-          </span>
+        <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.svg"
+            alt="Aurios"
+            className="h-8 w-auto"
+          />
         </Link>
 
         <ul className="hidden md:flex items-center gap-8">
           {[
-            { label: 'Features', href: '#features' },
+            { label: 'How It Works', href: '#how-it-works' },
             { label: 'Vaults', href: '#vaults' },
-            { label: 'Docs', href: '#' },
+            { label: 'Docs', href: '/docs' },
           ].map((link) => (
             <li key={link.label}>
               <a
@@ -201,7 +176,7 @@ function LandingNavbar() {
 }
 
 /* ── HeroSection ────────────────────────────────────────────────────── */
-function HeroSection() {
+function HeroSection({ totalTvl, heroApy }: { totalTvl?: string; heroApy?: string }) {
   return (
     <section className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 py-24 md:grid-cols-2 md:py-32">
       {/* Left */}
@@ -222,18 +197,17 @@ function HeroSection() {
           variants={fadeUp}
           className="font-space-grotesk text-[2.75rem] font-bold leading-[1.1] tracking-tight text-text-primary md:text-[3.25rem]"
         >
-          Smart Savings for
+          Put idle treasury capital
           <br />
-          DAO Treasuries
+          to work on YO vaults
         </motion.h1>
 
         <motion.p
           variants={fadeUp}
           className="font-inter text-base leading-relaxed text-text-secondary max-w-md"
         >
-          Smelt is the institutional-grade savings layer for onchain organizations.
-          Deploy treasury funds into audited YO Protocol vaults. Earn real yield.
-          Stay in control.
+          Aurios helps DAO operators deploy reserves into live YO vaults with clear risk
+          profiles, transparent yield, and simple redeem flows.
         </motion.p>
 
         <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-4 pt-2">
@@ -244,12 +218,12 @@ function HeroSection() {
           >
             Start Saving
           </Link>
-          <a
-            href="#vaults"
+          <Link
+            href="/docs"
             className="rounded-lg border border-border-default px-6 py-3 font-space-grotesk text-sm font-semibold text-text-primary hover:border-accent-amber hover:text-accent-amber transition-colors"
           >
-            View Vaults
-          </a>
+            View Docs
+          </Link>
         </motion.div>
 
         <motion.div
@@ -272,7 +246,7 @@ function HeroSection() {
         </motion.div>
       </motion.div>
 
-      {/* Right — floating card */}
+      {/* Right - floating card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -286,7 +260,7 @@ function HeroSection() {
         >
           <div className="flex items-center justify-between">
             <span className="font-space-grotesk text-xs font-semibold uppercase tracking-wider text-text-secondary">
-              Treasury Dashboard
+              Live Snapshot
             </span>
             <span
               className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-roboto-mono text-xs font-medium"
@@ -300,33 +274,25 @@ function HeroSection() {
             </span>
           </div>
 
-          <div>
-            <div className="flex items-baseline justify-between">
-              <p className="font-space-grotesk text-lg font-bold text-text-primary">yoUSD Vault</p>
-              <span className="font-roboto-mono text-xl font-medium text-accent-amber">
-                +12.4%
-              </span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
+              <span className="font-inter text-xs text-text-secondary">Total TVL</span>
+              <span className="font-roboto-mono text-sm text-text-primary">{totalTvl ?? '...'}</span>
             </div>
-            <p className="font-inter text-xs text-text-tertiary mt-0.5">APY</p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="h-2 w-full rounded-full bg-border-subtle overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{ width: '62%', backgroundColor: 'var(--accent-amber)' }}
-              />
+            <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
+              <span className="font-inter text-xs text-text-secondary">Avg APY (3 vaults)</span>
+              <span className="font-roboto-mono text-sm text-accent-amber">{heroApy ?? '...'}</span>
             </div>
-            <div className="flex justify-between font-roboto-mono text-xs text-text-tertiary">
-              <span>$124,000</span>
-              <span>$200,000 target</span>
+            <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
+              <span className="font-inter text-xs text-text-secondary">Network</span>
+              <span className="font-roboto-mono text-sm text-text-primary">Base Mainnet</span>
             </div>
           </div>
 
           <div className="flex items-center justify-between border-t border-border-subtle pt-4 font-inter text-xs text-text-secondary">
-            <span>Status: Active</span>
+            <span>Status: Live</span>
             <span className="text-border-strong">|</span>
-            <span>Risk: Low</span>
+            <span>Custody: Non-custodial</span>
           </div>
         </motion.div>
       </motion.div>
@@ -334,58 +300,25 @@ function HeroSection() {
   )
 }
 
-/* ── StatsStrip ─────────────────────────────────────────────────────── */
-interface StatItemProps {
-  target: number
-  prefix?: string
-  suffix?: string
-  decimals?: number
-  divisor?: number
-  label: string
-  hasBorder?: boolean
-}
+function StatsStrip({ realTvl, avgApy }: { realTvl?: string; avgApy?: number }) {
+  const avgApyLabel = avgApy != null ? `${avgApy.toFixed(2)}%` : '...'
 
-function StatItem({
-  target,
-  prefix = '',
-  suffix = '',
-  decimals = 0,
-  divisor = 1,
-  label,
-  hasBorder = false,
-}: StatItemProps) {
-  const { count, ref } = useCountUp(target)
-  return (
-    <div
-      ref={ref}
-      className={`flex flex-col items-center gap-1.5 py-2 ${hasBorder ? 'border-l border-border-subtle' : ''}`}
-    >
-      <span className="font-mono-number text-3xl font-medium text-text-primary">
-        {prefix}
-        {(count / divisor).toFixed(decimals)}
-        {suffix}
-      </span>
-      <span className="font-inter text-sm text-text-secondary text-center">{label}</span>
-    </div>
-  )
-}
-
-function StatsStrip() {
-  const stats: Array<Omit<StatItemProps, 'hasBorder'>> = [
-    { target: 24, prefix: '$', suffix: 'B+', decimals: 1, divisor: 10, label: 'TVL Across YO Vaults' },
-    { target: 147, suffix: '%', decimals: 1, divisor: 10, label: 'Average APY' },
-    { target: 3, label: 'Supported Assets' },
-    { target: 999, suffix: '%', decimals: 1, divisor: 10, label: 'Uptime' },
+  const items = [
+    { label: 'Total TVL', value: realTvl ?? '...' },
+    { label: 'Average APY (30d)', value: avgApyLabel },
+    { label: 'Active Vaults', value: '3' },
+    { label: 'Settlement Layer', value: 'Base L2' },
   ]
 
   return (
     <section className="border-y border-border-subtle bg-bg-card">
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid grid-cols-2 gap-y-8 md:grid-cols-4">
-          {stats.map((stat, i) => (
-            <StatItem key={i} {...stat} hasBorder={i > 0} />
-          ))}
-        </div>
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-3 px-6 py-8 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map((item) => (
+          <div key={item.label} className="rounded-xl border border-border-subtle bg-bg-page px-4 py-3.5">
+            <p className="font-inter text-[11px] uppercase tracking-wider text-text-tertiary">{item.label}</p>
+            <p className="mt-1 font-roboto-mono text-lg text-text-primary">{item.value}</p>
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -393,91 +326,68 @@ function StatsStrip() {
 
 /* ── OpportunitySection ─────────────────────────────────────────────── */
 function OpportunitySection() {
-  const benefits = [
+  const steps = [
     {
       icon: <BuildingIcon />,
-      title: 'Treasury Efficiency',
-      desc: 'Stop letting DAO funds sit idle. Put your treasury to work with institutional-grade yield.',
+      title: '1. Choose Vault',
+      desc: 'Select yoUSD, yoETH, or yoBTC based on your treasury policy and risk mandate.',
     },
     {
       icon: <ZapIcon />,
-      title: 'Instant Deployment',
-      desc: 'One transaction to deploy. No complex multisig setup. No waiting periods.',
+      title: '2. Deposit Funds',
+      desc: 'Execute one onchain deposit flow from your wallet with transparent confirmations.',
     },
     {
       icon: <BarChartIcon />,
-      title: 'Real Yield',
-      desc: 'Not tokenomics games. Real protocol revenue distributed to depositors.',
+      title: '3. Track and Redeem',
+      desc: 'Monitor APY, TVL, and history in dashboard, then redeem assets when needed.',
     },
   ]
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-24">
-      <div className="grid grid-cols-1 items-start gap-16 lg:grid-cols-2">
-        {/* Left */}
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          className="flex flex-col gap-6"
+    <section id="how-it-works" className="mx-auto max-w-7xl px-6 py-20">
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: '-80px' }}
+      >
+        <motion.p
+          variants={fadeUp}
+          className="font-roboto-mono text-xs font-medium uppercase tracking-widest text-accent-amber mb-3"
         >
-          <motion.p
-            variants={fadeUp}
-            className="font-roboto-mono text-xs font-medium uppercase tracking-widest text-accent-amber"
-          >
-            The Opportunity
-          </motion.p>
-          <motion.h2
-            variants={fadeUp}
-            className="font-space-grotesk text-3xl font-bold leading-tight text-text-primary md:text-4xl"
-          >
-            Why DAOs choose Smelt
-          </motion.h2>
-          <motion.p
-            variants={fadeUp}
-            className="font-inter text-base leading-relaxed text-text-secondary"
-          >
-            Most DAO treasuries sit idle in multisigs, earning nothing while inflation
-            erodes purchasing power. Smelt connects your treasury to optimized YO
-            Protocol vaults — with the controls your governance requires.
-          </motion.p>
-          <motion.p
-            variants={fadeUp}
-            className="font-inter text-base leading-relaxed text-text-secondary"
-          >
-            From stablecoin yield to crypto-native growth strategies, choose the risk
-            profile that fits your DAO&apos;s mandate.
-          </motion.p>
-        </motion.div>
+          How It Works
+        </motion.p>
+        <motion.h2
+          variants={fadeUp}
+          className="font-space-grotesk text-3xl font-bold leading-tight text-text-primary md:text-4xl"
+        >
+          A clean 3-step treasury flow
+        </motion.h2>
+        <motion.p
+          variants={fadeUp}
+          className="mt-3 max-w-2xl font-inter text-base leading-relaxed text-text-secondary"
+        >
+          No complex setup. No hidden mechanics. Just vault selection, deposit execution,
+          and clear portfolio tracking.
+        </motion.p>
 
-        {/* Right */}
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          className="flex flex-col gap-4"
-        >
-          {benefits.map((b) => (
+        <motion.div variants={stagger} className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {steps.map((step) => (
             <motion.div
-              key={b.title}
+              key={step.title}
               variants={fadeUp}
-              className="rounded-xl border border-border-subtle bg-bg-card p-5 flex items-start gap-4"
+              className="rounded-xl border border-border-subtle bg-bg-card p-5"
             >
-              <span className="mt-0.5 flex-shrink-0 text-accent-amber">{b.icon}</span>
-              <div>
-                <p className="font-space-grotesk text-sm font-semibold text-text-primary">
-                  {b.title}
-                </p>
-                <p className="font-inter text-sm leading-relaxed text-text-secondary mt-1">
-                  {b.desc}
-                </p>
-              </div>
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border-subtle text-accent-amber">
+                {step.icon}
+              </span>
+              <p className="mt-4 font-space-grotesk text-sm font-semibold text-text-primary">{step.title}</p>
+              <p className="mt-1.5 font-inter text-sm leading-relaxed text-text-secondary">{step.desc}</p>
             </motion.div>
           ))}
         </motion.div>
-      </div>
+      </motion.div>
     </section>
   )
 }
@@ -488,7 +398,7 @@ function FeaturesSection() {
     {
       icon: <LockIcon />,
       title: 'Non-Custodial',
-      desc: 'Your keys, your assets. Smelt never holds funds directly.',
+      desc: 'Your keys, your assets. Aurios never holds funds directly.',
     },
     {
       icon: <GridIcon />,
@@ -557,13 +467,18 @@ function FeaturesSection() {
 }
 
 /* ── VaultSection ───────────────────────────────────────────────────── */
-function VaultSection() {
-  const vaults = [
-    { name: 'yoUSD Savings', asset: 'yoUSD', apy: '12.4%', risk: 'Low', status: 'Active', accent: '#F59E0B' },
-    { name: 'yoETH Growth', asset: 'yoETH', apy: '18.2%', risk: 'Med', status: 'Active', accent: '#3B82F6' },
-    { name: 'yoBTC Reserve', asset: 'yoBTC', apy: '9.8%', risk: 'Low', status: 'Active', accent: '#22C55E' },
-  ]
+interface LandingVault {
+  name: string
+  asset: string
+  apy: string
+  risk: string
+  status: string
+  accent: string
+  tvl?: string
+  minDeposit: string
+}
 
+function VaultSection({ vaults }: { vaults: LandingVault[] }) {
   return (
     <section id="vaults" className="mx-auto max-w-7xl px-6 py-24">
       <motion.div
@@ -582,7 +497,7 @@ function VaultSection() {
           variants={fadeUp}
           className="font-space-grotesk text-3xl font-bold text-text-primary md:text-4xl mb-10"
         >
-          Available Vaults
+          Compare vault options
         </motion.h2>
 
         <motion.div variants={stagger} className="flex flex-col gap-3">
@@ -598,12 +513,7 @@ function VaultSection() {
                 <div className="w-1 flex-shrink-0" style={{ backgroundColor: v.accent }} />
                 <div className="flex flex-col gap-4 px-6 py-5 flex-1 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3 sm:w-48">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold font-space-grotesk flex-shrink-0"
-                      style={{ backgroundColor: v.accent + '22', color: v.accent }}
-                    >
-                      {v.asset[0]}
-                    </div>
+                    <VaultIcon symbol={v.name.split(' ')[0]} size={32} />
                     <div>
                       <span className="font-space-grotesk text-sm font-semibold text-text-primary block">
                         {v.name}
@@ -612,12 +522,24 @@ function VaultSection() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-8">
+                  <div className="flex flex-wrap items-center gap-6">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">APY</span>
                       <span className="font-roboto-mono text-lg font-semibold text-accent-amber">
                         {v.apy}
                       </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">TVL</span>
+                      <span className="font-roboto-mono text-sm text-text-secondary">
+                        {v.tvl ?? (
+                          <span className="inline-block w-16 h-4 rounded bg-border-subtle animate-pulse" />
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">Min Deposit</span>
+                      <span className="font-roboto-mono text-sm text-text-secondary">{v.minDeposit}</span>
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="font-inter text-[10px] text-text-tertiary uppercase tracking-wider">Risk</span>
@@ -687,7 +609,7 @@ function FinalCTA() {
             variants={fadeUp}
             className="font-inter text-base text-text-secondary max-w-sm"
           >
-            Join DAOs already earning real yield with Smelt. One transaction to deploy.
+            Join DAOs already earning real yield with Aurios. One transaction to deploy.
           </motion.p>
           <motion.div variants={fadeUp}>
             <motion.div whileTap={{ scale: 0.97 }}>
@@ -718,11 +640,13 @@ function Footer() {
     <footer className="border-t border-border-subtle bg-bg-page">
       <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-1 gap-8 md:grid-cols-3">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-accent-amber">
-            <HexLogo size={20} />
-            <span className="font-space-grotesk text-base font-bold text-text-primary">
-              Smelt
-            </span>
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.svg"
+              alt="Aurios"
+              className="h-6 w-auto"
+            />
           </div>
           <p className="font-inter text-sm text-text-secondary max-w-[200px]">
             Institutional-grade savings for DAO treasuries.
@@ -742,7 +666,7 @@ function Footer() {
               { label: 'Dashboard', href: '/dashboard' },
               { label: 'Vaults', href: '#vaults' },
               { label: 'Features', href: '#features' },
-              { label: 'Docs', href: '#' },
+              { label: 'Docs', href: '/docs' },
             ].map((link) => (
               <li key={link.label}>
                 <a
@@ -759,7 +683,7 @@ function Footer() {
         <div className="flex flex-col gap-3 md:items-end">
           <p className="font-inter text-sm text-text-secondary">Built for DoraHacks 2026</p>
           <p className="font-inter text-xs text-text-tertiary">
-            &copy; 2026 Smelt. All rights reserved.
+            &copy; 2026 Aurios. All rights reserved.
           </p>
         </div>
       </div>
@@ -769,14 +693,67 @@ function Footer() {
 
 /* ── Page ───────────────────────────────────────────────────────────── */
 export default function LandingPage() {
+  const usd = useVaultData(VAULTS.yoUSD.address)
+  const eth = useVaultData(VAULTS.yoETH.address)
+  const btc = useVaultData(VAULTS.yoBTC.address)
+
+  const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
+  const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
+  const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+
+  const tvlUSD = usd.data ? fmtTVL(usd.data.totalAssets, 6, 'USDC') : undefined
+  const tvlETH = eth.data ? fmtTVL(eth.data.totalAssets, 18, 'WETH') : undefined
+  const tvlBTC = btc.data ? fmtTVL(btc.data.totalAssets, 8, 'cbBTC') : undefined
+
+  const apyUSD = snapUSD?.apyFormatted
+  const apyETH = snapETH?.apyFormatted
+  const apyBTC = snapBTC?.apyFormatted
+
+  const avgApy = (snapUSD && snapETH && snapBTC)
+    ? (snapUSD.apy + snapETH.apy + snapBTC.apy) / 3
+    : undefined
+
+  const liveVaults: LandingVault[] = [
+    {
+      name: 'yoUSD Savings',
+      asset: 'yoUSD',
+      apy: apyUSD ?? '...',
+      risk: 'Low',
+      status: 'Active',
+      accent: '#F59E0B',
+      tvl: tvlUSD,
+      minDeposit: '1 USDC',
+    },
+    {
+      name: 'yoETH Growth',
+      asset: 'yoETH',
+      apy: apyETH ?? '...',
+      risk: 'Med',
+      status: 'Active',
+      accent: '#3B82F6',
+      tvl: tvlETH,
+      minDeposit: '0.001 WETH',
+    },
+    {
+      name: 'yoBTC Reserve',
+      asset: 'yoBTC',
+      apy: apyBTC ?? '...',
+      risk: 'Low',
+      status: 'Active',
+      accent: '#22C55E',
+      tvl: tvlBTC,
+      minDeposit: '0.0001 cbBTC',
+    },
+  ]
+
   return (
     <main className="min-h-screen bg-bg-page text-text-primary">
       <LandingNavbar />
-      <HeroSection />
-      <StatsStrip />
+      <HeroSection totalTvl={tvlUSD} heroApy={avgApy != null ? `${avgApy.toFixed(2)}%` : undefined} />
+      <StatsStrip realTvl={tvlUSD} avgApy={avgApy} />
       <OpportunitySection />
       <FeaturesSection />
-      <VaultSection />
+      <VaultSection vaults={liveVaults} />
       <FinalCTA />
       <Footer />
     </main>

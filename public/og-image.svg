@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#07080B"/>
+
+  <!-- Logo Symbol: Chevron A -->
+  <path d="M600 140 L555 230 L570 230 L600 172 L630 230 L645 230 Z" fill="#F59E0B"/>
+  <!-- Logo Symbol: Vault Arch -->
+  <path d="M540 270 Q540 230 600 230 Q660 230 660 270" stroke="#F59E0B" stroke-width="14" stroke-linecap="round" fill="none"/>
+
+  <!-- Wordmark -->
+  <text x="600" y="370" fill="#F59E0B" font-family="system-ui, -apple-system, sans-serif" font-size="52" font-weight="700" text-anchor="middle" letter-spacing="12">AURIOS</text>
+
+  <!-- Tagline -->
+  <text x="600" y="420" fill="#9B9081" font-family="system-ui, -apple-system, sans-serif" font-size="20" text-anchor="middle" letter-spacing="2">Smart DeFi Savings for DAO Treasuries</text>
+
+  <!-- Bottom badge -->
+  <text x="600" y="530" fill="#4A453F" font-family="system-ui, -apple-system, sans-serif" font-size="14" text-anchor="middle" letter-spacing="3">BUILT ON YO PROTOCOL | BASE L2</text>
+</svg>

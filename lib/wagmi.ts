@@ -1,15 +1,9 @@
-import { createConfig, http } from 'wagmi'
-import { base } from 'wagmi/chains'
-import { injected, walletConnect } from 'wagmi/connectors'
-
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? ''
+import { createConfig } from '@privy-io/wagmi'
+import { http } from 'wagmi'
+import { base } from 'viem/chains'
 
 export const wagmiConfig = createConfig({
   chains: [base],
-  connectors: [
-    injected(),
-    walletConnect({ projectId }),
-  ],
   transports: {
     [base.id]: http('https://mainnet.base.org'),
   },

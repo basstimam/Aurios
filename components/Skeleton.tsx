@@ -1,18 +1,18 @@
-// Skeleton loading components for Smelt
+// Skeleton loading components for Aurios
 // Uses Tailwind animate-pulse with dark theme colors
 
 interface SkeletonProps {
   className?: string
 }
 
-// SkeletonText — animated pulse line for text placeholders
+// SkeletonText - animated pulse line for text placeholders
 export function SkeletonText({ className = '' }: SkeletonProps) {
   return (
     <div className={`h-4 bg-[#1F2937] rounded animate-pulse ${className}`} />
   )
 }
 
-// SkeletonCard — animated pulse placeholder matching VaultCard dimensions
+// SkeletonCard - animated pulse placeholder matching VaultCard dimensions
 export function SkeletonCard({ className = '' }: SkeletonProps) {
   return (
     <div className={`bg-[#0D0E15] border border-[#1C1D27] rounded-xl p-5 animate-pulse ${className}`}>
@@ -31,7 +31,7 @@ export function SkeletonCard({ className = '' }: SkeletonProps) {
   )
 }
 
-// SkeletonTable — animated pulse rows matching table dimensions
+// SkeletonTable - animated pulse rows matching table dimensions
 export function SkeletonTable({ rows = 3, className = '' }: SkeletonProps & { rows?: number }) {
   return (
     <div className={`bg-[#0D0E15] border border-[#252838] rounded-xl overflow-hidden ${className}`}>

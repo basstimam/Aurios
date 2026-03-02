@@ -46,14 +46,17 @@ function SuccessContent() {
 
   const vaultKey = searchParams.get('vault') || 'yoUSD'
   const amount = searchParams.get('amount') || '0'
-  const txHash = searchParams.get('txHash') || '0x0000000000000000000000000000000000000000'
+  const txHash = searchParams.get('txHash') || ''
   const isQueued = searchParams.get('queued') === 'true'
   const requestId = searchParams.get('requestId') || ''
+  const sharesParam = searchParams.get('shares') || ''
 
   const vault = VAULTS[vaultKey as keyof typeof VAULTS] || VAULTS.yoUSD
-  const estimatedShares = (parseFloat(amount) * 0.98).toFixed(4)
-  const shortHash = txHash.length > 10 ? `${txHash.slice(0, 6)}...${txHash.slice(-4)}` : txHash
-  const basescanUrl = `https://basescan.org/tx/${txHash}`
+  // Use shares from URL (passed from deposit flow via previewDeposit result)
+  const displayShares = sharesParam || '...'
+  const hasTx = txHash.length > 10 && !txHash.startsWith('0x00000000')
+  const shortHash = hasTx ? `${txHash.slice(0, 6)}...${txHash.slice(-4)}` : ''
+  const basescanUrl = hasTx ? `https://basescan.org/tx/${txHash}` : ''
 
   return (
     <AppLayout>
@@ -96,7 +99,7 @@ function SuccessContent() {
             <>
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
                 <span className="text-text-secondary text-sm font-inter">Request ID</span>
-                <span className="font-roboto-mono text-text-primary text-sm">{requestId || 'REQ-001'}</span>
+                <span className="font-roboto-mono text-text-primary text-sm">{requestId || 'Pending'}</span>
               </div>
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
                 <span className="text-text-secondary text-sm font-inter">Vault</span>
@@ -119,8 +122,9 @@ function SuccessContent() {
               </div>
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
                 <span className="text-text-secondary text-sm font-inter">Shares Received</span>
-                <span className="font-roboto-mono text-text-primary text-sm">{estimatedShares} {vault.name}</span>
+                <span className="font-roboto-mono text-text-primary text-sm">{displayShares} {vault.name}</span>
               </div>
+              {hasTx && (
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
                 <span className="text-text-secondary text-sm font-inter">Transaction Hash</span>
                 <a
@@ -132,6 +136,7 @@ function SuccessContent() {
                   {shortHash}
                 </a>
               </div>
+              )}
               <div className="flex justify-between px-5 py-4 border-b border-border-subtle">
                 <span className="text-text-secondary text-sm font-inter">Network</span>
                 <span className="font-roboto-mono text-text-primary text-sm">Base</span>
@@ -146,16 +151,18 @@ function SuccessContent() {
 
         {/* Action Buttons */}
         <motion.div variants={stagger} className="flex flex-col gap-3">
+          {hasTx && (
           <motion.a
             variants={fadeUp}
             whileTap={{ scale: 0.97 }}
             href={basescanUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full py-3 rounded-lg border border-border-default text-text-secondary font-inter font-semibold hover:border-accent-amber hover:text-accent-amber transition-colors"
+            className="w-full py-3 rounded-lg border border-border-default text-text-secondary font-inter font-semibold hover:border-accent-amber hover:text-accent-amber transition-colors text-center"
           >
             View on BaseScan ↗
           </motion.a>
+          )}
           <motion.button
             variants={fadeUp}
             whileTap={{ scale: 0.97 }}

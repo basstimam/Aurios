@@ -44,6 +44,7 @@ export const VAULTS = {
 
 export type VaultKey = keyof typeof VAULTS
 
+
 export const VAULT_LIST = Object.values(VAULTS)
 
 export function getVaultByAddress(address: string): VaultConfig | undefined {
