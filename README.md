@@ -12,69 +12,20 @@ Aurios enables DAO treasuries to earn yield on idle assets (USDC, WETH, cbBTC) t
 
 ---
 
-## Screenshots
-
-| Landing | Dashboard |
-|---------|-----------|
-| ![Landing](screenshots/01-landing.png) | ![Dashboard](screenshots/02-dashboard.png) |
-
-| Deposit Choose | Deposit Amount |
-|----------------|----------------|
-| ![Choose](screenshots/03-deposit-choose.png) | ![Amount](screenshots/04-deposit-amount.png) |
-
-| Deposit Preview | Deposit Success |
-|-----------------|-----------------|
-| ![Preview](screenshots/05-deposit-preview.png) | ![Success](screenshots/06-deposit-success.png) |
-
-| Redeem | Team Management |
-|--------|-----------------|
-| ![Redeem](screenshots/07-redeem.png) | ![Team](screenshots/08-team.png) |
-
----
-
-## User Flow
-
-![User Flow Diagram](docs/aurios-user-flow.excalidraw.png)
-
-```
-Landing → Connect Wallet → Dashboard
-                              ├── Deposit Flow: Choose Vault → Enter Amount → Preview & Risk Disclosure → Confirm → Success
-                              ├── Redeem Flow: Select Vault → Enter Shares → Preview → Confirm → Success/Queued
-                              └── Team: Manage Members & Roles
-```
-
----
-
-## Architecture
-
-![Architecture Diagram](docs/aurios-architecture.excalidraw.png)
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Frontend | Next.js 14, React 18, Tailwind CSS | App framework, styling |
-| Animations | Framer Motion | Page transitions, micro-interactions |
-| Wallet | Privy | Wallet connection (MetaMask, WalletConnect, etc.) |
-| Onchain | @yo-protocol/core SDK | Deposit, redeem, preview, vault state |
-| Chain | Base (L2) | Low-cost transactions |
-| Backend | Supabase | Team management, transaction history |
-| Data | YO REST API | Live APY, TVL snapshots |
-
----
-
 ## YO SDK Integration
 
 Aurios integrates **15 YO SDK methods** for real onchain interactions, zero mock data:
 
 | Category | SDK Method | Usage |
 |----------|-----------|-------|
-| **Vault State** | `getVaults` | List available vaults |
-| | `isPaused` | Guard deposits when vault is paused |
-| **Deposit** | `previewDeposit` | Real-time share estimate before deposit |
-| | `depositWithApproval` | Approve + deposit in single flow |
+| **Vault State** | `isPaused` | Guard deposits when vault is paused |
+| | `getVaultState` | Live vault statistics |
+| **Deposit** | `deposit` | Execute deposit with approval flow |
 | | `waitForTransaction` | Wait for deposit confirmation |
-| **Redeem** | `previewRedeem` | Live preview of assets receivable |
-| | `redeem` | Execute redemption with slippage protection |
+| | `quotePreviewDeposit` | Real-time share estimate before deposit |
+| **Redeem** | `redeem` | Execute redemption with slippage protection |
 | | `waitForRedeemReceipt` | Detect instant vs. queued redemptions |
+| | `quotePreviewRedeem` | Live preview of assets receivable |
 | **User Data** | `getUserPosition` | Shares + assets per vault |
 | | `getUserPerformance` | Unrealized P&L |
 | | `getUserHistory` | On-chain transaction history |
@@ -101,20 +52,16 @@ Personalized vault recommendations through 3 quick questions about risk toleranc
 ### Risk Disclosure & Confirmation
 Every deposit requires explicit acknowledgment of smart contract risks, withdrawal timing, and yield variability before transaction submission. No hidden risks.
 
-### Real-Time Data Everywhere
+### Real-Time Data
 All numbers in the app come from live sources:
 - **APY**: YO REST API (refreshed every 5 minutes)
 - **TVL**: YO REST API + on-chain aggregation
 - **User positions**: YO SDK `getUserPosition` (refreshed every 30 seconds)
-- **Share previews**: YO SDK `previewDeposit` / `previewRedeem` (debounced, live)
+- **Share previews**: `quotePreviewDeposit` / `quotePreviewRedeem` (live)
 - **Transaction history**: Merged on-chain (SDK) + off-chain (Supabase) with dedup
 
-### Trust Signals
-- Non-custodial badge
-- Audited Protocol indicator
-- Base Chain verification
-- Live TVL from real vault data
-- Transaction links to BaseScan
+### DAO Team Dashboard
+Shared treasury view for the whole team - members, roles, aggregated vault positions, and shared transaction history.
 
 ---
 
@@ -128,8 +75,8 @@ All numbers in the app come from live sources:
 ### Installation
 
 ```bash
-git clone https://github.com/<your-username>/aurios.git
-cd aurios
+git clone https://github.com/basstimam/Aurios.git
+cd Aurios
 npm install
 ```
 
@@ -169,26 +116,27 @@ aurios/
 │   ├── page.tsx                  # Landing page
 │   ├── dashboard/page.tsx        # Portfolio dashboard
 │   ├── deposit/
-│   │   ├── choose/page.tsx       # Vault selection
-│   │   ├── amount/page.tsx       # Amount input + preview
+│   │   ├── choose/page.tsx       # Vault selection + Smart Advisor
+│   │   ├── amount/page.tsx       # Amount input
 │   │   ├── preview/page.tsx      # Transaction review + risk modal
 │   │   └── success/page.tsx      # Confirmation + BaseScan link
 │   ├── redeem/page.tsx           # Redemption flow
-│   └── team/page.tsx             # Team management
+│   ├── team/page.tsx             # Team management
+│   └── docs/page.tsx             # Documentation
 ├── components/                   # Reusable UI components
-│   ├── Navbar.tsx                # Navigation + wallet button
+│   ├── Navbar.tsx                # Navigation + wallet button + mobile menu
 │   ├── VaultCard.tsx             # Vault display cards
 │   ├── VaultAdvisor.tsx          # Smart Vault Advisor
 │   ├── RiskDisclosure.tsx        # Risk confirmation modal
 │   ├── YieldChart.tsx            # APY history chart
 │   ├── TvlChart.tsx              # TVL history chart
-│   ├── TrustBar.tsx              # Trust signals bar (live TVL)
+│   ├── TrustBar.tsx              # Trust signals bar
 │   ├── AmountInput.tsx           # Token amount input
 │   └── ThemeToggle.tsx           # Light/dark mode switch
 ├── hooks/                        # Custom React hooks
 │   ├── useYoClient.ts            # YO SDK client initialization
 │   ├── useDeposit.ts             # Deposit flow (approve + deposit + confirm)
-│   ├── useRedeem.ts              # Redeem flow (redeem + wait + detect queue)
+│   ├── useRedeem.ts              # Redeem flow (allowance + redeem + receipt)
 │   ├── useVaultSnapshot.ts       # Live APY/TVL from YO REST API
 │   ├── useUserPosition.ts        # User's vault position
 │   ├── useUserPerformance.ts     # Unrealized P&L
@@ -196,14 +144,19 @@ aurios/
 │   ├── useVaultYieldHistory.ts   # 30-day APY chart data
 │   ├── useVaultTvlHistory.ts     # TVL chart data
 │   ├── useVaultPaused.ts         # Vault paused guard
+│   ├── useTreasuryPositions.ts   # Aggregated team treasury positions
 │   └── usePendingRedemptions.ts  # Queued redemption tracking
 ├── lib/
 │   ├── wagmi.ts                  # Wagmi + Privy config
 │   ├── chains.ts                 # Base chain config
-│   ├── supabase.ts               # Supabase client
-│   └── contracts/vaults.ts       # Vault addresses + config
+│   ├── supabase.ts               # Supabase client + types
+│   └── contracts/
+│       ├── vaults.ts             # Vault addresses + config
+│       └── addresses.ts          # Contract addresses (gateway, registry)
 └── public/
-    ├── favicon.svg               # Amber hex logo
+    ├── logo.svg                  # Aurios brand logo
+    ├── logo-symbol.svg           # Symbol-only variant
+    ├── favicon.svg               # Favicon
     └── og-image.svg              # OG preview image
 ```
 
@@ -213,7 +166,7 @@ aurios/
 
 | Category | Technology |
 |----------|-----------|
-| Framework | [Next.js 14](https://nextjs.org/) (App Router) |
+| Framework | [Next.js 15](https://nextjs.org/) (App Router) |
 | Language | TypeScript |
 | Styling | [Tailwind CSS](https://tailwindcss.com/) |
 | Animations | [Framer Motion](https://motion.dev/) |
@@ -234,7 +187,7 @@ aurios/
 - Clean typography hierarchy (Space Grotesk titles, Roboto Mono numbers, Inter body)
 - Light/dark theme support
 - Skeleton loading states on every page
-- Toast notifications for all async operations
+- Mobile-responsive with hamburger navigation
 
 ### Creativity & Growth Potential (30%)
 - Smart Vault Advisor: AI-guided vault selection (unique to Aurios)
@@ -244,8 +197,8 @@ aurios/
 
 ### Quality of Integration (20%)
 - 15 YO SDK methods live on Base mainnet
-- Real `depositWithApproval` + `redeem` flows with transaction confirmation
-- `previewDeposit` / `previewRedeem` for accurate real-time estimates
+- Real deposit + redeem flows with approval and confirmation
+- Smart allowance polling for RPC sync delays
 - Live APY from YO REST API (no hardcoded values)
 - Vault pause detection prevents deposits to paused vaults
 
