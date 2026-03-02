@@ -581,6 +581,74 @@ function VaultSection({ vaults }: { vaults: LandingVault[] }) {
   )
 }
 
+/* ── BenchmarkSection ──────────────────────────────────────────────── */
+function BenchmarkSection({ yoApy }: { yoApy: number | undefined }) {
+  const currentApy = yoApy ?? 0
+  const comparisons = [
+    { label: 'Aurios (yoUSD)', apy: currentApy, tag: 'On-Chain YO Vault', isAccent: true },
+    { label: 'US High-Yield Savings', apy: 4.5, tag: 'Off-Chain', isAccent: false },
+    { label: 'Traditional Savings', apy: 0.5, tag: 'Off-Chain', isAccent: false },
+  ]
+  const maxApy = Math.max(currentApy, 4.5, 0.5)
+  return (
+    <section className="border-y border-border-subtle bg-bg-card">
+      <div className="mx-auto max-w-7xl px-6 py-24">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-60px' }}
+        >
+          <motion.p variants={fadeUp} className="font-roboto-mono text-xs font-medium uppercase tracking-widest text-accent-amber mb-3">
+            Yield Benchmark
+          </motion.p>
+          <motion.h2 variants={fadeUp} className="font-space-grotesk text-3xl font-bold text-text-primary md:text-4xl mb-3">
+            How does Aurios compare?
+          </motion.h2>
+          <motion.p variants={fadeUp} className="font-inter text-base text-text-secondary mb-10 max-w-xl">
+            YO vaults deliver institutional-grade yield accessible to any DAO or wallet.
+          </motion.p>
+          <motion.div variants={stagger} className="space-y-5">
+            {comparisons.map((row) => {
+              const barWidth = maxApy > 0 ? (row.apy / maxApy) * 100 : 0
+              return (
+                <motion.div key={row.label} variants={fadeUp} className="flex items-center gap-4">
+                  <div className="w-52 flex-shrink-0">
+                    <p className={`font-space-grotesk text-sm font-semibold ${row.isAccent ? 'text-text-primary' : 'text-text-secondary'}`}>
+                      {row.label}
+                    </p>
+                    <span className={`font-inter text-xs ${row.isAccent ? 'text-accent-amber' : 'text-text-tertiary'}`}>
+                      {row.tag}
+                    </span>
+                  </div>
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className="flex-1 bg-border-subtle rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${barWidth}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: row.isAccent ? 'var(--accent-amber)' : 'var(--border-strong)' }}
+                      />
+                    </div>
+                    <span className={`font-roboto-mono text-sm w-16 text-right font-bold ${row.isAccent ? 'text-accent-amber' : 'text-text-secondary'}`}>
+                      {row.isAccent ? (currentApy > 0 ? `${currentApy.toFixed(2)}%` : '...') : `${row.apy.toFixed(1)}%`}
+                    </span>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </motion.div>
+          <motion.p variants={fadeUp} className="font-inter text-xs text-text-tertiary mt-8">
+            APY based on 30-day trailing data from YO Protocol. Traditional savings rates based on US market averages. Past performance does not guarantee future results.
+          </motion.p>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
 /* ── FinalCTA ───────────────────────────────────────────────────────── */
 function FinalCTA() {
   return (
@@ -754,6 +822,7 @@ export default function LandingPage() {
       <OpportunitySection />
       <FeaturesSection />
       <VaultSection vaults={liveVaults} />
+      <BenchmarkSection yoApy={snapUSD?.apy} />
       <FinalCTA />
       <Footer />
     </main>

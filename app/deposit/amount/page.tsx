@@ -72,6 +72,15 @@ function InfoIcon() {
   )
 }
 
+function TrendingIcon() {
+  return (
+    <svg className="w-4 h-4 text-accent-amber flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points="17 6 23 6 23 12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 // ── Main Content ──────────────────────────────────────────────────────────────
 
 function EnterAmountContent() {
@@ -240,6 +249,48 @@ function EnterAmountContent() {
             </span>
           </div>
         </motion.div>
+
+        {/* Yield Projection */}
+        {isValid && snapshot?.apy != null && snapshot.apy > 0 && (
+          <motion.div
+            variants={fadeUp}
+            className="bg-bg-card border border-border-default rounded-xl p-5 mt-4"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingIcon />
+              <span className="font-space-grotesk text-text-primary font-semibold text-sm">
+                Yield Projection
+              </span>
+            </div>
+            <div>
+              {[
+                { label: '1 Month', months: 1 },
+                { label: '6 Months', months: 6 },
+                { label: '12 Months', months: 12 },
+              ].map(({ label, months }) => {
+                const yieldAmt = parsed * (snapshot.apy / 100) * (months / 12)
+                const fmt =
+                  yieldAmt < 0.001
+                    ? '< 0.001'
+                    : yieldAmt.toLocaleString('en-US', { maximumFractionDigits: 4 })
+                return (
+                  <div
+                    key={label}
+                    className="flex justify-between items-center py-2.5 border-b border-border-subtle last:border-0"
+                  >
+                    <span className="text-text-secondary text-sm font-inter">{label}</span>
+                    <span className="font-roboto-mono text-sm text-accent-amber">
+                      +{fmt} {vault.assetSymbol}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-text-tertiary text-xs font-inter mt-3 leading-relaxed">
+              Based on current {snapshot.apyFormatted} APY. Actual yield may vary with market conditions.
+            </p>
+          </motion.div>
+        )}
 
         {/* Vault Info card */}
         <motion.div
