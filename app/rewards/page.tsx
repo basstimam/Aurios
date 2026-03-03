@@ -100,6 +100,38 @@ export default function RewardsPage() {
           </p>
         </motion.div>
 
+        {/* Reward types info */}
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-bg-card border border-border-default rounded-xl p-5 shadow-card">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div
+                className="w-1 h-4 rounded-full flex-shrink-0"
+                style={{ backgroundColor: 'var(--accent-amber)' }}
+              />
+              <p className="font-space-grotesk text-text-primary font-semibold text-sm">Vault Yield</p>
+            </div>
+            <p className="font-inter text-text-secondary text-sm leading-relaxed">
+              Base APY yang otomatis di-compound ke dalam harga share vault. Yield ini terus berjalan selama
+              dana kamu berada di vault — tidak perlu tindakan apapun. Nilainya tercermin langsung di halaman Dashboard.
+            </p>
+          </div>
+          <div className="bg-bg-card border border-border-default rounded-xl p-5 shadow-card">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div
+                className="w-1 h-4 rounded-full flex-shrink-0"
+                style={{ backgroundColor: 'var(--accent-green)' }}
+              />
+              <p className="font-space-grotesk text-text-primary font-semibold text-sm">Merkl Rewards</p>
+            </div>
+            <p className="font-inter text-text-secondary text-sm leading-relaxed">
+              Insentif token tambahan yang didistribusikan oleh{' '}
+              <a href="https://merkl.angle.money" target="_blank" rel="noopener noreferrer" className="text-accent-amber hover:underline">Merkl</a>
+              {' '}di atas vault yield. Reward ini <span className="text-text-primary font-medium">tidak otomatis</span> —
+              harus di-claim secara manual lewat halaman ini setiap kali ada saldo claimable.
+            </p>
+          </div>
+        </motion.div>
+
         {/* Not connected */}
         {!isConnected && (
           <motion.div

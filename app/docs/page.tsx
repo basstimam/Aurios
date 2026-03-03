@@ -287,6 +287,91 @@ export default function DocsPage() {
           </div>
         </motion.section>
 
+        {/* ── Section 5: Rewards & Merkl Incentives ──────────────────────────────── */}
+        <motion.section
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
+          <SectionHeader
+            title="Rewards & Merkl Incentives"
+            subtitle="Dua lapisan yield yang bisa kamu dapatkan dari setiap vault."
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-4xl mb-8">
+
+            {/* Vault Yield */}
+            <div className="bg-bg-card border border-border-default rounded-xl p-5 shadow-card">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-1 h-5 rounded-full" style={{ backgroundColor: 'var(--accent-amber)' }} />
+                <p className="font-space-grotesk text-text-primary font-semibold">Vault Yield (Base APY)</p>
+              </div>
+              <p className="font-inter text-text-secondary text-sm leading-relaxed">
+                Yield utama yang dihasilkan strategi vault YO Protocol — bisa berasal dari lending,
+                staking, atau penyediaan likuiditas tergantung vault. Yield ini otomatis di-compound
+                ke dalam harga share vault setiap waktu, sehingga posisimu tumbuh pasif tanpa perlu
+                tindakan manual. Nilainya bisa dilihat real-time di dashboard.
+              </p>
+            </div>
+
+            {/* Merkl Rewards */}
+            <div className="bg-bg-card border border-border-default rounded-xl p-5 shadow-card">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-1 h-5 rounded-full" style={{ backgroundColor: 'var(--accent-green)' }} />
+                <p className="font-space-grotesk text-text-primary font-semibold">Merkl Rewards (Incentive)</p>
+              </div>
+              <p className="font-inter text-text-secondary text-sm leading-relaxed">
+                Insentif token tambahan yang didistribusikan oleh{' '}
+                <a
+                  href="https://merkl.angle.money"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent-amber hover:underline"
+                >
+                  Merkl Protocol
+                </a>
+                {' '}kepada depositor vault YO. Tidak otomatis — harus di-claim secara manual dari
+                halaman Rewards setiap kali ada saldo claimable. Transaksi claim dilakukan on-chain
+                di Base Mainnet.
+              </p>
+            </div>
+          </div>
+
+          {/* Comparison table */}
+          <div className="bg-bg-card border border-border-default rounded-xl shadow-card max-w-2xl overflow-hidden">
+            <div className="grid grid-cols-3 gap-0 border-b border-border-subtle">
+              <div className="px-5 py-3">
+                <p className="font-space-grotesk text-text-tertiary text-xs font-semibold uppercase tracking-wider">Aspek</p>
+              </div>
+              <div className="px-5 py-3 border-l border-border-subtle">
+                <p className="font-space-grotesk text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent-amber)' }}>Vault Yield</p>
+              </div>
+              <div className="px-5 py-3 border-l border-border-subtle">
+                <p className="font-space-grotesk text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent-green)' }}>Merkl Rewards</p>
+              </div>
+            </div>
+            {[
+              ['Sumber', 'Strategi YO Protocol', 'Merkl Protocol (insentif)'],
+              ['Proses', 'Otomatis di-compound', 'Harus di-claim manual'],
+              ['Lihat di', 'Dashboard → posisi aktif', 'Halaman Rewards'],
+              ['Frekuensi', 'Terus-menerus (real-time)', 'Periodik per epoch Merkl'],
+              ['On-chain tx', 'Tidak diperlukan', 'Diperlukan saat claim'],
+            ].map(([aspek, vault, merkl]) => (
+              <div key={aspek} className="grid grid-cols-3 gap-0 border-b border-border-subtle last:border-b-0">
+                <div className="px-5 py-3.5">
+                  <p className="font-inter text-text-secondary text-sm">{aspek}</p>
+                </div>
+                <div className="px-5 py-3.5 border-l border-border-subtle">
+                  <p className="font-inter text-text-primary text-sm">{vault}</p>
+                </div>
+                <div className="px-5 py-3.5 border-l border-border-subtle">
+                  <p className="font-inter text-text-primary text-sm">{merkl}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+
         {/* ── Section 5: Security and Risk ─────────────────────────────────────── */}
         <motion.section
           variants={fadeUp}
