@@ -12,6 +12,7 @@ import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
 import { useUserPerformance } from '@/hooks/useUserPerformance'
 import { usePendingRedemptions } from '@/hooks/usePendingRedemptions'
 import { useUserHistory } from '@/hooks/useUserHistory'
+import { useMerklRewards, useClaimMerklRewards, getClaimableTokens, formatTokenAmount } from '@/hooks/useMerklRewards'
 import { YieldChart } from '@/components/YieldChart'
 import { TvlChart } from '@/components/TvlChart'
 import { VAULTS, VAULT_LIST, VaultConfig } from '@/lib/contracts/vaults'
@@ -627,6 +628,99 @@ function TxHistorySection() {
   )
 }
 
+// ── MerklRewardsSection ──────────────────────────────────────────────────────────────
+
+function MerklRewardsSection() {
+  const { isConnected } = useAccount()
+  const { data: rewards, isLoading } = useMerklRewards()
+  const { claim, isPending, isSuccess, error } = useClaimMerklRewards()
+
+  if (!isConnected) return null
+
+  const claimableTokens = getClaimableTokens(rewards)
+
+  if (isLoading) return null
+  if (claimableTokens.length === 0 && !isSuccess) return null
+
+  return (
+    <motion.section variants={fadeUp} initial="hidden" animate="visible">
+      <motion.div
+        className="bg-bg-card border border-border-default rounded-xl p-5"
+        style={{ borderColor: 'rgba(22,163,74,0.4)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: 'var(--accent-green)' }} />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ backgroundColor: 'var(--accent-green)' }} />
+            </span>
+            <h3 className="font-space-grotesk text-text-primary font-semibold">Merkl Rewards</h3>
+            <span className="font-inter text-text-tertiary text-xs">Claimable</span>
+          </div>
+
+          {isSuccess ? (
+            <span className="font-inter text-sm text-accent-green font-medium">
+              Claimed successfully
+            </span>
+          ) : (
+            rewards && claimableTokens.length > 0 && (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => claim(rewards)}
+                disabled={isPending}
+                className={`rounded-lg px-4 py-2 font-inter text-sm font-semibold transition-colors ${
+                  isPending
+                    ? 'bg-accent-green/40 text-black cursor-wait'
+                    : 'bg-accent-green text-black hover:opacity-90'
+                }`}
+              >
+                {isPending ? 'Claiming...' : 'Claim All'}
+              </motion.button>
+            )
+          )}
+        </div>
+
+        {error && (
+          <div className="mb-3 p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+            <p className="font-inter text-xs text-red-400">{error}</p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {claimableTokens.map((reward) => (
+            <div
+              key={reward.token.address}
+              className="flex items-center justify-between p-3 bg-bg-card-hover rounded-lg border border-border-subtle"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-border-default flex items-center justify-center">
+                  <span className="font-roboto-mono text-[10px] text-text-secondary font-bold">
+                    {reward.token.symbol.slice(0, 3)}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-space-grotesk text-text-primary text-sm font-semibold">
+                    {reward.token.symbol}
+                  </p>
+                  <p className="font-inter text-text-tertiary text-xs">
+                    {reward.token.name}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-roboto-mono text-text-primary text-sm font-medium">
+                  {formatTokenAmount(reward.amount, reward.claimed, reward.token.decimals)}
+                </p>
+                <p className="font-inter text-text-tertiary text-xs">claimable</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </motion.section>
+  )
+}
+
 // ── DashboardPage ─────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -656,6 +750,9 @@ export default function DashboardPage() {
 
         {/* ── Pending Redemptions (Feature #4) ──────────────────────────────── */}
         <PendingRedemptionsSection />
+
+        {/* ── Merkl Rewards Claim ────────────────────────────────────────── */}
+        <MerklRewardsSection />
 
         {/* ── APY Yield Chart (Feature #3) ──────────────────────────────────── */}
         <motion.section

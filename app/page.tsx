@@ -1,6 +1,7 @@
 'use client'
 
-import { motion, Variants } from 'framer-motion'
+import { useState } from 'react'
+import { motion, Variants, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
 import { VAULTS } from '@/lib/contracts/vaults'
@@ -121,6 +122,18 @@ const fadeLeft: Variants = {
 
 /* ── LandingNavbar ──────────────────────────────────────────────────── */
 function LandingNavbar() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  const menuLinks = [
+    { label: 'How It Works', href: '#how-it-works' },
+    { label: 'Vaults', href: '#vaults' },
+    { label: 'Docs', href: '/docs' },
+  ]
+
+  const handleLinkClick = () => {
+    setIsMenuOpen(false)
+  }
+
   return (
     <motion.header
       initial={{ y: -16, opacity: 0 }}
@@ -138,12 +151,9 @@ function LandingNavbar() {
           />
         </Link>
 
+        {/* Desktop Navigation */}
         <ul className="hidden md:flex items-center gap-8">
-          {[
-            { label: 'How It Works', href: '#how-it-works' },
-            { label: 'Vaults', href: '#vaults' },
-            { label: 'Docs', href: '/docs' },
-          ].map((link) => (
+          {menuLinks.map((link) => (
             <li key={link.label}>
               <a
                 href={link.href}
@@ -155,6 +165,26 @@ function LandingNavbar() {
           ))}
         </ul>
 
+        {/* Mobile Hamburger Button */}
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="md:hidden flex flex-col gap-1.5 p-2 hover:opacity-70 transition-opacity"
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          )}
+        </button>
+
         <Link
           href="/dashboard"
           className="rounded-lg px-4 py-2 font-space-grotesk text-sm font-semibold transition-opacity hover:opacity-90"
@@ -163,6 +193,35 @@ function LandingNavbar() {
           Launch App
         </Link>
       </nav>
+
+      {/* Mobile Menu Panel */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="md:hidden border-t border-border-subtle bg-bg-page"
+          >
+            <div className="mx-auto max-w-7xl px-6 py-4">
+              <ul className="flex flex-col gap-3">
+                {menuLinks.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      onClick={handleLinkClick}
+                      className="block font-inter text-sm text-text-secondary hover:text-text-primary transition-colors py-2"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   )
 }

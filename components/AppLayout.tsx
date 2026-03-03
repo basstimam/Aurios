@@ -2,6 +2,7 @@
 
 import { Navbar } from './Navbar'
 import { useTokenPrices } from '@/hooks/useTokenPrices'
+import { NetworkGuard } from './NetworkGuard'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -16,7 +17,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="min-h-screen bg-bg-page">
       <Navbar />
       <main className="max-w-[1440px] mx-auto w-full">
-        {children}
+        <NetworkGuard>
+          {children}
+        </NetworkGuard>
       </main>
     </div>
   )
