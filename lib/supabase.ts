@@ -14,7 +14,6 @@ export type TxStatus     = 'pending' | 'confirmed' | 'failed'
 export type Team        = Database['public']['Tables']['teams']['Row']
 export type TeamMember  = Database['public']['Tables']['team_members']['Row']
 export type Transaction = Database['public']['Tables']['transactions']['Row']
-export type SavingsGoal = Database['public']['Tables']['savings_goals']['Row']
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generated Database types (from Supabase type generator)

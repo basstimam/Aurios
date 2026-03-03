@@ -12,7 +12,6 @@ import { VAULT_LIST } from '@/lib/contracts/vaults'
 
 const NAV_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Goals', href: '/goals' },
   { label: 'Team', href: '/team' },
   { label: 'Docs', href: '/docs' },
 ]
