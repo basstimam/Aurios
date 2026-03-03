@@ -94,7 +94,7 @@ function PreviewContent() {
 
   const isLoading = depositState === 'approving' || depositState === 'depositing' || depositState === 'confirming'
 
-  const apy = snapshot?.apyFormatted ?? '...'
+  const apy = snapshot?.totalApyFormatted ?? '...'
 
   // Use sharesParam from amount page, with live gateway quote as fallback
   const bestShares = sharesParam || liveShares || ''
@@ -120,12 +120,19 @@ function PreviewContent() {
     toast.dismiss('deposit-tx')
   }
 
-  const detailRows = [
+  const detailRows: { label: string; value: string; highlight?: boolean; sub?: string }[] = [
     { label: 'Vault', value: vault.name },
     { label: 'Depositing', value: `${amount} ${vault.assetSymbol}` },
     { label: 'You will receive', value: `${displayShares} ${vault.name}` },
     { label: 'Exchange Rate', value: exchangeRateStr },
-    { label: 'Current APY', value: apy, highlight: true },
+    {
+      label: 'Current APY',
+      value: apy,
+      highlight: true,
+      sub: (snapshot?.rewardApy ?? 0) > 0
+        ? `${snapshot?.apyFormatted} native + ${snapshot!.rewardApy!.toFixed(0)}% Merkl rewards`
+        : undefined,
+    },
     { label: 'Network', value: 'Base' },
     { label: 'Estimated Gas', value: 'Paid in ETH (Base L2)' },
   ]
@@ -158,16 +165,23 @@ function PreviewContent() {
             <motion.div
               key={i}
               variants={fadeUp}
-              className="flex justify-between items-center px-5 py-4 border-b border-border-subtle last:border-0"
+              className="flex justify-between items-start px-5 py-4 border-b border-border-subtle last:border-0"
             >
               <span className="text-text-secondary text-sm font-inter">{row.label}</span>
-              <span
-                className={`font-roboto-mono text-sm ${
-                  row.highlight ? 'text-accent-amber font-bold' : 'text-text-primary'
-                }`}
-              >
-                {row.value}
-              </span>
+              <div className="text-right">
+                <span
+                  className={`font-roboto-mono text-sm ${
+                    row.highlight ? 'text-accent-amber font-bold' : 'text-text-primary'
+                  }`}
+                >
+                  {row.value}
+                </span>
+                {row.sub && (
+                  <p className="font-inter text-text-tertiary text-[10px] mt-0.5">
+                    {row.sub}
+                  </p>
+                )}
+              </div>
             </motion.div>
           ))}
         </motion.div>
