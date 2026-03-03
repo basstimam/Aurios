@@ -4,6 +4,7 @@ const VAULT_LOGOS: Record<string, string> = {
   yoUSD: 'https://assets.coingecko.com/coins/images/55386/standard/yoUSD.png',
   yoETH: 'https://assets.coingecko.com/coins/images/54932/standard/yoETH.png',
   yoBTC: 'https://assets.coingecko.com/coins/images/55189/standard/yoBTC.png',
+  yoEUR: 'https://assets.coingecko.com/coins/images/68746/standard/yoEUR_color.png',
 }
 
 interface VaultIconProps {

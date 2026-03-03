@@ -128,14 +128,17 @@ function PortfolioStats() {
   const { data: posUSD } = useUserPosition(VAULTS.yoUSD.address)
   const { data: posETH } = useUserPosition(VAULTS.yoETH.address)
   const { data: posBTC } = useUserPosition(VAULTS.yoBTC.address)
+  const { data: posEUR } = useUserPosition(VAULTS.yoEUR.address)
   const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
   const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
   const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+  const { data: snapEUR } = useVaultSnapshot(VAULTS.yoEUR.address)
 
   // Feature #1: getUserPerformance for all 3 vaults
   const { data: perfUSD } = useUserPerformance(VAULTS.yoUSD.address)
   const { data: perfETH } = useUserPerformance(VAULTS.yoETH.address)
   const { data: perfBTC } = useUserPerformance(VAULTS.yoBTC.address)
+  const { data: perfEUR } = useUserPerformance(VAULTS.yoEUR.address)
 
   if (!isConnected) {
     return (
@@ -152,7 +155,7 @@ function PortfolioStats() {
     )
   }
 
-  const activeCount = [posUSD, posETH, posBTC].filter(
+  const activeCount = [posUSD, posETH, posBTC, posEUR].filter(
     (p) => p != null && p.shares > BigInt(0)
   ).length
 
@@ -161,11 +164,13 @@ function PortfolioStats() {
     yoUSD: (snapUSD?.totalApy ?? 0) / 100,
     yoETH: (snapETH?.totalApy ?? 0) / 100,
     yoBTC: (snapBTC?.totalApy ?? 0) / 100,
+    yoEUR: (snapEUR?.totalApy ?? 0) / 100,
   }
   const positions = [
     { pos: posUSD, vault: VAULTS.yoUSD, key: 'yoUSD' },
     { pos: posETH, vault: VAULTS.yoETH, key: 'yoETH' },
     { pos: posBTC, vault: VAULTS.yoBTC, key: 'yoBTC' },
+    { pos: posEUR, vault: VAULTS.yoEUR, key: 'yoEUR' },
   ]
   // Find primary non-zero position for display
   const primaryPos = positions.find((p) => p.pos != null && p.pos.shares > BigInt(0))
@@ -181,7 +186,8 @@ function PortfolioStats() {
   const totalUnrealized =
     (perfUSD?.unrealized?.raw ?? 0) +
     (perfETH?.unrealized?.raw ?? 0) +
-    (perfBTC?.unrealized?.raw ?? 0)
+    (perfBTC?.unrealized?.raw ?? 0) +
+    (perfEUR?.unrealized?.raw ?? 0)
 
   const unrealizedStr =
     activeCount === 0
@@ -292,18 +298,22 @@ function PositionsTable() {
   const { data: posUSD } = useUserPosition(VAULTS.yoUSD.address)
   const { data: posETH } = useUserPosition(VAULTS.yoETH.address)
   const { data: posBTC } = useUserPosition(VAULTS.yoBTC.address)
+  const { data: posEUR } = useUserPosition(VAULTS.yoEUR.address)
 
   const { data: dataUSD } = useVaultData(VAULTS.yoUSD.address)
   const { data: dataETH } = useVaultData(VAULTS.yoETH.address)
   const { data: dataBTC } = useVaultData(VAULTS.yoBTC.address)
+  const { data: dataEUR } = useVaultData(VAULTS.yoEUR.address)
 
   const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
   const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
   const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+  const { data: snapEUR } = useVaultSnapshot(VAULTS.yoEUR.address)
   const snapshots: Record<string, { apy: string; reward: string }> = {
     [VAULTS.yoUSD.address]: { apy: snapUSD?.totalApyFormatted ?? '...', reward: snapUSD?.rewardApy ? `+${snapUSD.rewardApy.toFixed(0)}%` : '' },
     [VAULTS.yoETH.address]: { apy: snapETH?.totalApyFormatted ?? '...', reward: snapETH?.rewardApy ? `+${snapETH.rewardApy.toFixed(0)}%` : '' },
     [VAULTS.yoBTC.address]: { apy: snapBTC?.totalApyFormatted ?? '...', reward: snapBTC?.rewardApy ? `+${snapBTC.rewardApy.toFixed(0)}%` : '' },
+    [VAULTS.yoEUR.address]: { apy: snapEUR?.totalApyFormatted ?? '...', reward: snapEUR?.rewardApy ? `+${snapEUR.rewardApy.toFixed(0)}%` : '' },
   }
 
   if (!isConnected) {
@@ -325,6 +335,7 @@ function PositionsTable() {
     { vault: VAULTS.yoUSD, position: posUSD, vaultData: dataUSD },
     { vault: VAULTS.yoETH, position: posETH, vaultData: dataETH },
     { vault: VAULTS.yoBTC, position: posBTC, vaultData: dataBTC },
+    { vault: VAULTS.yoEUR, position: posEUR, vaultData: dataEUR },
   ]
 
   const activeRows = allRows.filter(
@@ -506,6 +517,7 @@ function TxHistorySection() {
   const { data: histUSD = [] } = useUserHistory(VAULTS.yoUSD.address)
   const { data: histETH = [] } = useUserHistory(VAULTS.yoETH.address)
   const { data: histBTC = [] } = useUserHistory(VAULTS.yoBTC.address)
+  const { data: histEUR = [] } = useUserHistory(VAULTS.yoEUR.address)
 
   if (!isConnected) return null
 
@@ -515,6 +527,7 @@ function TxHistorySection() {
     ...histUSD.map((e) => normalizeSdkEntry(e, 'yoUSD')),
     ...histETH.map((e) => normalizeSdkEntry(e, 'yoETH')),
     ...histBTC.map((e) => normalizeSdkEntry(e, 'yoBTC')),
+    ...histEUR.map((e) => normalizeSdkEntry(e, 'yoEUR')),
   ]
 
   // Merge with deduplication by txHash
