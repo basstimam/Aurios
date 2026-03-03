@@ -44,6 +44,7 @@ export type Database = {
           target_usd: number
           monthly_deposit_usd: number
           deadline: string | null
+          team_id: string | null
           created_at: string
           updated_at: string
         }
@@ -56,6 +57,7 @@ export type Database = {
           target_usd: number
           monthly_deposit_usd?: number
           deadline?: string | null
+          team_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -68,10 +70,19 @@ export type Database = {
           target_usd?: number
           monthly_deposit_usd?: number
           deadline?: string | null
+          team_id?: string | null
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'savings_goals_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
       }
       team_members: {
         Row: {

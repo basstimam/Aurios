@@ -16,6 +16,7 @@ export interface SavingsGoal {
   target_usd: number
   monthly_deposit_usd: number
   deadline: string | null
+  team_id: string | null
   created_at: string
 }
 
@@ -27,6 +28,7 @@ export interface CreateGoalInput {
   target_usd: number
   monthly_deposit_usd: number
   deadline?: string | null
+  team_id?: string | null
 }
 
 export interface DeleteGoalInput {
@@ -38,7 +40,7 @@ export interface DeleteGoalInput {
 // Hooks
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Fetch all savings goals for a given wallet address */
+/** Fetch personal goals for a wallet (where team_id is null) */
 export function useSavingsGoals(walletAddress: string | undefined) {
   return useQuery<SavingsGoal[]>({
     queryKey: ['savings-goals', walletAddress?.toLowerCase()],
@@ -48,6 +50,7 @@ export function useSavingsGoals(walletAddress: string | undefined) {
         .from('savings_goals')
         .select('*')
         .eq('wallet_address', walletAddress.toLowerCase())
+        .is('team_id', null)
         .order('created_at', { ascending: false })
       if (error) throw new Error(error.message)
       return (data ?? []) as SavingsGoal[]
@@ -57,7 +60,26 @@ export function useSavingsGoals(walletAddress: string | undefined) {
   })
 }
 
-/** Create a new savings goal */
+/** Fetch all team goals for a given team */
+export function useTeamGoals(teamId: string | undefined) {
+  return useQuery<SavingsGoal[]>({
+    queryKey: ['team-goals', teamId],
+    queryFn: async () => {
+      if (!teamId) return []
+      const { data, error } = await supabase
+        .from('savings_goals')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return (data ?? []) as SavingsGoal[]
+    },
+    enabled: !!teamId,
+    staleTime: 30_000,
+  })
+}
+
+/** Create a new goal (personal or team) */
 export function useCreateGoal() {
   const queryClient = useQueryClient()
 
@@ -73,33 +95,48 @@ export function useCreateGoal() {
           target_usd: input.target_usd,
           monthly_deposit_usd: input.monthly_deposit_usd,
           deadline: input.deadline ?? null,
+          team_id: input.team_id ?? null,
         })
         .select()
         .single()
       if (error) throw new Error(error.message)
       return data as SavingsGoal
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['savings-goals'] })
+      if (vars.team_id) {
+        queryClient.invalidateQueries({ queryKey: ['team-goals', vars.team_id] })
+      }
     },
   })
 }
 
-/** Delete a savings goal by id */
+/** Delete a goal by id */
 export function useDeleteGoal() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (input: DeleteGoalInput) => {
+      // Fetch team_id before deleting so we can invalidate team cache
+      const { data: goal } = await supabase
+        .from('savings_goals')
+        .select('team_id')
+        .eq('id', input.id)
+        .single()
+
       const { error } = await supabase
         .from('savings_goals')
         .delete()
         .eq('id', input.id)
         .eq('wallet_address', input.wallet_address.toLowerCase())
       if (error) throw new Error(error.message)
+      return goal?.team_id as string | null
     },
-    onSuccess: () => {
+    onSuccess: (teamId) => {
       queryClient.invalidateQueries({ queryKey: ['savings-goals'] })
+      if (teamId) {
+        queryClient.invalidateQueries({ queryKey: ['team-goals', teamId] })
+      }
     },
   })
 }

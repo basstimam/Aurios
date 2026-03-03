@@ -10,6 +10,8 @@ import { useTeamTransactions } from '@/hooks/useTransactions'
 import type { TeamRole, TxAction } from '@/lib/supabase'
 import { useTreasuryPositions } from '@/hooks/useTreasuryPositions'
 import { VaultIcon } from '@/components/VaultIcon'
+import { useMemberPositions } from '@/hooks/useMemberPositions'
+import { useTokenPrices, VAULT_PRICE_KEY } from '@/hooks/useTokenPrices'
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 
@@ -112,6 +114,93 @@ function TreasuryOverview({ memberAddresses }: { memberAddresses: string[] }) {
           Aggregated across {data.memberCount} team member{data.memberCount > 1 ? 's' : ''}
         </p>
       )}
+    </motion.div>
+  )
+}
+
+// ── Member Contributions ─────────────────────────────────────────────────────
+
+function MemberContributions({
+  members,
+}: {
+  members: { walletAddress: string; displayName: string | null }[]
+}) {
+  const { data: prices } = useTokenPrices()
+  const { data: memberPositions, isLoading } = useMemberPositions(members, prices as Record<string, number> | undefined, VAULT_PRICE_KEY)
+
+  const totalUsd = memberPositions?.reduce((sum, m) => sum + m.totalUsd, 0) ?? 0
+
+  if (isLoading) {
+    return (
+      <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl p-5">
+        <h2 className="font-space-grotesk text-text-primary font-semibold mb-4">Member Contributions</h2>
+        <div className="flex items-center gap-2 py-2">
+          <div className="w-4 h-4 border-2 border-accent-amber border-t-transparent rounded-full animate-spin" />
+          <span className="font-inter text-text-secondary text-sm">Loading positions...</span>
+        </div>
+      </motion.div>
+    )
+  }
+
+  if (!memberPositions || totalUsd === 0) {
+    return (
+      <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl p-5">
+        <h2 className="font-space-grotesk text-text-primary font-semibold mb-4">Member Contributions</h2>
+        <p className="font-inter text-text-tertiary text-sm py-2">No deposits yet.</p>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl p-5">
+      <h2 className="font-space-grotesk text-text-primary font-semibold mb-4">Member Contributions</h2>
+      <div className="space-y-3">
+        {memberPositions.map((member) => {
+          const pct = totalUsd > 0 ? (member.totalUsd / totalUsd) * 100 : 0
+          if (member.totalUsd < 0.01) return null
+          return (
+            <div key={member.walletAddress} className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-border-default flex items-center justify-center text-[10px] text-text-primary font-bold font-space-grotesk">
+                    {member.displayName ? member.displayName.slice(0, 2).toUpperCase() : member.walletAddress.slice(2, 4).toUpperCase()}
+                  </div>
+                  <span className="font-inter text-text-primary text-sm font-medium">
+                    {member.displayName ?? shortAddr(member.walletAddress)}
+                  </span>
+                </div>
+                <span className="font-roboto-mono text-text-primary text-sm">
+                  {pct.toFixed(1)}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-border-subtle rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-accent-amber transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {member.positions.filter(p => p.assets > 0n).map((p) => (
+                  <span
+                    key={p.vault.address}
+                    className="font-inter text-xs px-1.5 py-0.5 rounded border"
+                    style={{
+                      color: p.vault.color,
+                      borderColor: `${p.vault.color}30`,
+                      backgroundColor: `${p.vault.color}08`,
+                    }}
+                  >
+                    {p.assetsFormatted} {p.vault.assetSymbol}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <p className="font-inter text-text-tertiary text-xs mt-4 pt-3 border-t border-border-subtle">
+        Total treasury value: ${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </p>
     </motion.div>
   )
 }
@@ -644,31 +733,13 @@ export default function TeamPage() {
               </div>
             </motion.div>
 
-            {/* Member Stats */}
-            <motion.div variants={fadeUp} className="bg-bg-card border border-border-default rounded-xl p-5">
-              <h2 className="font-space-grotesk text-text-primary font-semibold mb-4">Member Breakdown</h2>
-              <div className="space-y-2.5">
-                {(['admin', 'member'] as TeamRole[]).map(role => {
-                  const count = members.filter(m => m.role === role && m.status === 'active').length
-                  return (
-                    <div key={role} className="flex items-center justify-between">
-                      <span className={`text-xs px-2 py-1 rounded font-inter font-medium ${ROLE_BADGE[role]}`}>
-                        {role}
-                      </span>
-                      <span className="font-roboto-mono text-text-primary text-sm">{count}</span>
-                    </div>
-                  )
-                })}
-                {members.filter(m => m.status === 'pending').length > 0 && (
-                  <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
-                    <span className="font-inter text-text-secondary text-xs">Pending invites</span>
-                    <span className="font-roboto-mono text-text-primary text-sm">
-                      {members.filter(m => m.status === 'pending').length}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            {/* Member Contributions */}
+            <MemberContributions
+              members={members.filter(m => m.status === 'active').map(m => ({
+                walletAddress: m.wallet_address,
+                displayName: m.display_name,
+              }))}
+            />
 
             {/* Activity Feed (from tx history) */}
             {txHistory.length > 0 && (

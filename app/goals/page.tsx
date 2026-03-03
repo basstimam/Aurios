@@ -9,8 +9,11 @@ import { AppLayout } from '@/components'
 import { useUserPosition } from '@/hooks/useUserPosition'
 import { useVaultSnapshot } from '@/hooks/useVaultSnapshot'
 import { useTokenPrices, VAULT_PRICE_KEY } from '@/hooks/useTokenPrices'
+import { useTeam, useTeamMembers } from '@/hooks/useTeam'
+import { useTreasuryPositions } from '@/hooks/useTreasuryPositions'
 import {
   useSavingsGoals,
+  useTeamGoals,
   useCreateGoal,
   useDeleteGoal,
   projectMonths,
@@ -49,9 +52,11 @@ function fmtUsd(value: number): string {
 
 const VAULT_KEYS = Object.keys(VAULTS) as VaultKey[]
 
-// ── GoalCard ──────────────────────────────────────────────────────────────
+type GoalTab = 'personal' | 'team'
 
-function GoalCard({
+// ── PersonalGoalCard (uses useUserPosition for single wallet) ────────────
+
+function PersonalGoalCard({
   goal,
   walletAddress,
 }: {
@@ -64,7 +69,6 @@ function GoalCard({
   const { data: snapshot } = useVaultSnapshot(goal.vault_address as `0x${string}`)
   const { mutate: deleteGoal, isPending: isDeleting } = useDeleteGoal()
 
-  // Derive current USD value from on-chain position
   const currentUsd = (() => {
     if (!position || !vault) return 0
     const assets = parseFloat(formatUnits(position.assets, vault.decimals))
@@ -73,6 +77,86 @@ function GoalCard({
     return assets * price
   })()
 
+  return (
+    <GoalCardShell
+      goal={goal}
+      currentUsd={currentUsd}
+      totalApy={snapshot?.totalApy ?? 0}
+      totalApyFormatted={snapshot?.totalApyFormatted}
+      vaultColor={vault?.color ?? 'var(--accent-amber)'}
+      isDeleting={isDeleting}
+      onDelete={() => deleteGoal({ id: goal.id, wallet_address: walletAddress })}
+    />
+  )
+}
+
+// ── TeamGoalCard (uses useTreasuryPositions for aggregate) ───────────────
+
+function TeamGoalCard({
+  goal,
+  walletAddress,
+  memberAddresses,
+}: {
+  goal: SavingsGoal
+  walletAddress: string
+  memberAddresses: string[]
+}) {
+  const vault = VAULTS[goal.vault_key as VaultKey]
+  const { data: treasury } = useTreasuryPositions(memberAddresses)
+  const { data: prices } = useTokenPrices()
+  const { data: snapshot } = useVaultSnapshot(goal.vault_address as `0x${string}`)
+  const { mutate: deleteGoal, isPending: isDeleting } = useDeleteGoal()
+
+  const currentUsd = (() => {
+    if (!treasury || !vault) return 0
+    const vaultPos = treasury.positions.find(
+      p => p.vault.address.toLowerCase() === goal.vault_address.toLowerCase()
+    )
+    if (!vaultPos) return 0
+    const assets = parseFloat(formatUnits(vaultPos.totalAssets, vault.decimals))
+    const priceKey = VAULT_PRICE_KEY[goal.vault_address.toLowerCase()]
+    const price = priceKey && prices ? prices[priceKey] : 1
+    return assets * price
+  })()
+
+  return (
+    <GoalCardShell
+      goal={goal}
+      currentUsd={currentUsd}
+      totalApy={snapshot?.totalApy ?? 0}
+      totalApyFormatted={snapshot?.totalApyFormatted}
+      vaultColor={vault?.color ?? 'var(--accent-amber)'}
+      isDeleting={isDeleting}
+      onDelete={() => deleteGoal({ id: goal.id, wallet_address: walletAddress })}
+      isTeamGoal
+      memberCount={treasury?.memberCount}
+    />
+  )
+}
+
+// ── GoalCardShell (shared visual layout) ─────────────────────────────────
+
+function GoalCardShell({
+  goal,
+  currentUsd,
+  totalApy,
+  totalApyFormatted,
+  vaultColor,
+  isDeleting,
+  onDelete,
+  isTeamGoal,
+  memberCount,
+}: {
+  goal: SavingsGoal
+  currentUsd: number
+  totalApy: number
+  totalApyFormatted?: string
+  vaultColor: string
+  isDeleting: boolean
+  onDelete: () => void
+  isTeamGoal?: boolean
+  memberCount?: number
+}) {
   const progressPct = goal.target_usd > 0
     ? Math.min((currentUsd / goal.target_usd) * 100, 100)
     : 0
@@ -80,15 +164,9 @@ function GoalCard({
   const months = projectMonths({
     currentUsd,
     targetUsd: goal.target_usd,
-    totalApyPercent: snapshot?.totalApy ?? 0,
+    totalApyPercent: totalApy,
     monthlyDepositUsd: goal.monthly_deposit_usd,
   })
-
-  const vaultColor = vault?.color ?? 'var(--accent-amber)'
-
-  function handleDelete() {
-    deleteGoal({ id: goal.id, wallet_address: walletAddress })
-  }
 
   return (
     <motion.div
@@ -96,9 +174,9 @@ function GoalCard({
       whileHover={{ y: -2 }}
       className="relative bg-bg-card border border-border-default rounded-xl p-5 shadow-card hover:shadow-card-hover transition-shadow flex flex-col gap-4"
     >
-      {/* Delete button — top-right */}
+      {/* Delete button */}
       <button
-        onClick={handleDelete}
+        onClick={onDelete}
         disabled={isDeleting}
         aria-label="Delete goal"
         className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md text-text-tertiary hover:text-accent-red hover:bg-bg-card-hover transition-colors disabled:opacity-40"
@@ -128,6 +206,11 @@ function GoalCard({
           >
             {goal.vault_key}
           </span>
+          {isTeamGoal && (
+            <span className="text-xs font-inter font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">
+              Team
+            </span>
+          )}
         </div>
         <h3 className="font-space-grotesk text-text-primary font-bold text-base leading-snug">
           {goal.name}
@@ -175,14 +258,14 @@ function GoalCard({
             </span>
           </div>
         )}
-        {snapshot && (
+        {totalApyFormatted && (
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-tertiary flex-shrink-0">
               <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
               <polyline points="16 7 22 7 22 13" />
             </svg>
             <span className="font-inter text-xs text-text-secondary">
-              APY <span className="font-medium" style={{ color: vaultColor }}>{snapshot.totalApyFormatted}</span>
+              APY <span className="font-medium" style={{ color: vaultColor }}>{totalApyFormatted}</span>
             </span>
           </div>
         )}
@@ -202,6 +285,19 @@ function GoalCard({
             </span>
           </div>
         )}
+        {isTeamGoal && memberCount && memberCount > 0 && (
+          <div className="flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-tertiary flex-shrink-0">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span className="font-inter text-xs text-text-secondary">
+              <span className="font-medium text-text-primary">{memberCount}</span> member{memberCount > 1 ? 's' : ''} contributing
+            </span>
+          </div>
+        )}
       </div>
     </motion.div>
   )
@@ -211,9 +307,11 @@ function GoalCard({
 
 function GoalForm({
   walletAddress,
+  teamId,
   onSuccess,
 }: {
   walletAddress: string
+  teamId?: string | null
   onSuccess: () => void
 }) {
   const [name, setName] = useState('')
@@ -243,6 +341,7 @@ function GoalForm({
       target_usd: target,
       monthly_deposit_usd: parseFloat(monthlyDepositUsd) || 0,
       deadline: deadline || null,
+      team_id: teamId ?? null,
     }
 
     await mutateAsync(input)
@@ -258,7 +357,7 @@ function GoalForm({
       className="bg-bg-card border border-border-default rounded-xl p-6 mb-6 shadow-card"
     >
       <h2 className="font-space-grotesk text-text-primary font-bold text-lg mb-5">
-        New Treasury Goal
+        {teamId ? 'New Team Goal' : 'New Personal Goal'}
       </h2>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -269,7 +368,7 @@ function GoalForm({
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="e.g. Emergency Fund, ETH Stack"
+            placeholder={teamId ? 'e.g. Q2 Treasury Target, ETH Reserve' : 'e.g. Emergency Fund, ETH Stack'}
             className={inputClass}
             required
           />
@@ -346,7 +445,7 @@ function GoalForm({
             className="h-10 px-6 rounded-lg text-sm font-inter font-semibold transition-opacity hover:opacity-90 disabled:opacity-40"
             style={{ backgroundColor: 'var(--accent-amber)', color: '#000' }}
           >
-            {isPending ? 'Creating…' : 'Create Goal'}
+            {isPending ? 'Creating...' : 'Create Goal'}
           </button>
         </div>
       </form>
@@ -356,7 +455,7 @@ function GoalForm({
 
 // ── EmptyState ────────────────────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ isTeam }: { isTeam?: boolean }) {
   return (
     <motion.div
       variants={fadeUp}
@@ -364,14 +463,57 @@ function EmptyState() {
       animate="visible"
       className="text-center py-20"
     >
-      <div className="text-4xl mb-3 text-text-tertiary select-none">◎</div>
+      <div className="text-4xl mb-3 text-text-tertiary select-none">
+        {isTeam ? (
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto text-text-tertiary">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        ) : ''}
+      </div>
       <p className="text-text-primary font-semibold font-space-grotesk">
-        No treasury goals yet
+        {isTeam ? 'No team goals yet' : 'No personal goals yet'}
       </p>
       <p className="text-text-secondary text-sm mt-1 font-inter">
-        Set your first treasury target to start tracking deployment progress
+        {isTeam
+          ? 'Set a collective treasury target for your team to track deployment progress'
+          : 'Set a personal target to start tracking your deposit progress'}
       </p>
     </motion.div>
+  )
+}
+
+// ── Tab Button ────────────────────────────────────────────────────────────
+
+function TabButton({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  count?: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative px-4 py-2 rounded-lg text-sm font-inter font-medium transition-colors ${
+        active
+          ? 'bg-bg-card text-text-primary shadow-sm border border-border-default'
+          : 'text-text-secondary hover:text-text-primary'
+      }`}
+    >
+      {label}
+      {typeof count === 'number' && count > 0 && (
+        <span className="ml-1.5 font-roboto-mono text-xs text-text-tertiary">
+          {count}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -381,8 +523,22 @@ export default function GoalsPage() {
   const { authenticated } = usePrivy()
   const { address } = useAccount()
   const [showForm, setShowForm] = useState(false)
+  const [activeTab, setActiveTab] = useState<GoalTab>('team')
 
-  const { data: goals = [], isLoading } = useSavingsGoals(address)
+  // Personal goals
+  const { data: personalGoals = [], isLoading: personalLoading } = useSavingsGoals(address)
+
+  // Team data
+  const { data: team } = useTeam()
+  const { data: members = [] } = useTeamMembers(team?.id)
+  const { data: teamGoals = [], isLoading: teamLoading } = useTeamGoals(team?.id)
+
+  const activeMembers = members.filter(m => m.status === 'active')
+  const memberAddresses = activeMembers.map(m => m.wallet_address)
+
+  const hasTeam = !!team
+  const goals = activeTab === 'team' ? teamGoals : personalGoals
+  const isLoading = activeTab === 'team' ? teamLoading : personalLoading
 
   // Guard: not connected
   if (!authenticated) {
@@ -408,14 +564,16 @@ export default function GoalsPage() {
         {/* Header row */}
         <motion.div
           variants={fadeUp}
-          className="flex items-center justify-between mb-8"
+          className="flex items-center justify-between mb-6"
         >
           <div>
             <h1 className="text-2xl font-bold font-space-grotesk text-text-primary">
               Treasury Goals
             </h1>
             <p className="text-sm text-text-secondary mt-1 font-inter">
-              Track your team&apos;s treasury targets and capital deployment goals
+              {hasTeam
+                ? `Track ${team.name}'s collective targets and personal goals`
+                : 'Set targets to track your deposit progress'}
             </p>
           </div>
           <button
@@ -431,10 +589,29 @@ export default function GoalsPage() {
           </button>
         </motion.div>
 
+        {/* Tabs — only show if user has a team */}
+        {hasTeam && (
+          <motion.div variants={fadeUp} className="flex gap-1 mb-6 p-1 rounded-lg bg-bg-page w-fit">
+            <TabButton
+              active={activeTab === 'team'}
+              label="Team Goals"
+              count={teamGoals.length}
+              onClick={() => { setActiveTab('team'); setShowForm(false) }}
+            />
+            <TabButton
+              active={activeTab === 'personal'}
+              label="Personal"
+              count={personalGoals.length}
+              onClick={() => { setActiveTab('personal'); setShowForm(false) }}
+            />
+          </motion.div>
+        )}
+
         {/* Inline creation form */}
         {showForm && address && (
           <GoalForm
             walletAddress={address}
+            teamId={activeTab === 'team' && hasTeam ? team.id : null}
             onSuccess={() => setShowForm(false)}
           />
         )}
@@ -444,7 +621,7 @@ export default function GoalsPage() {
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <div className="w-6 h-6 border-2 border-accent-amber border-t-transparent rounded-full animate-spin" />
-              <p className="font-inter text-text-secondary text-sm">Loading goals…</p>
+              <p className="font-inter text-text-secondary text-sm">Loading goals...</p>
             </div>
           </div>
         )}
@@ -457,18 +634,40 @@ export default function GoalsPage() {
             animate="visible"
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
           >
-            {goals.map(goal => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                walletAddress={address ?? ''}
-              />
-            ))}
+            {goals.map(goal =>
+              activeTab === 'team' ? (
+                <TeamGoalCard
+                  key={goal.id}
+                  goal={goal}
+                  walletAddress={address ?? ''}
+                  memberAddresses={memberAddresses}
+                />
+              ) : (
+                <PersonalGoalCard
+                  key={goal.id}
+                  goal={goal}
+                  walletAddress={address ?? ''}
+                />
+              )
+            )}
           </motion.div>
         )}
 
         {/* Empty state */}
-        {!isLoading && goals.length === 0 && <EmptyState />}
+        {!isLoading && goals.length === 0 && (
+          <EmptyState isTeam={activeTab === 'team'} />
+        )}
+
+        {/* No team hint — show when on personal tab or no team */}
+        {!hasTeam && !isLoading && (
+          <motion.div variants={fadeUp} className="mt-8 p-4 rounded-lg border border-border-subtle bg-bg-card">
+            <p className="font-inter text-text-secondary text-sm">
+              Create or join a team on the{' '}
+              <a href="/team" className="text-accent-amber font-medium hover:underline">Team page</a>
+              {' '}to set collective treasury goals.
+            </p>
+          </motion.div>
+        )}
       </motion.div>
     </AppLayout>
   )
