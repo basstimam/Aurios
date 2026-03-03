@@ -104,6 +104,7 @@ export function VaultCard({
             {tvl ?? '...'}
           </p>
         </div>
+      </div>
     </div>
   )
 }
