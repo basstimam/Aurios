@@ -109,6 +109,8 @@ function VaultCardWrapper({
         description={vault.description}
         color={vault.color}
         apy={snapshot?.totalApyFormatted ?? '...'}
+        nativeApy={snapshot?.apyFormatted}
+        rewardApy={snapshot?.rewardApy ?? undefined}
         tvl={
           data?.totalAssets != null
             ? fmtAssets(data.totalAssets, vault.decimals, vault.assetSymbol)

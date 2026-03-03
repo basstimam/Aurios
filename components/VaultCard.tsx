@@ -14,6 +14,8 @@ interface VaultCardProps {
   description: string
   color: string
   apy?: string
+  nativeApy?: string
+  rewardApy?: number
   tvl?: string
   isSelected?: boolean
   isDisabled?: boolean
@@ -26,6 +28,8 @@ export function VaultCard({
   description,
   color,
   apy,
+  nativeApy,
+  rewardApy,
   tvl,
   isSelected = false,
   isDisabled = false,
@@ -88,6 +92,11 @@ export function VaultCard({
           <p className="font-roboto-mono font-medium text-accent-amber text-sm">
             {apy ?? '...'}
           </p>
+          {nativeApy && rewardApy != null && rewardApy > 0 && (
+            <p className="font-inter text-text-tertiary text-[10px] mt-0.5 leading-tight">
+              {nativeApy} + {rewardApy.toFixed(0)}% Merkl
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-text-tertiary text-[10px] font-inter uppercase tracking-wider mb-0.5">TVL</p>
@@ -95,7 +104,6 @@ export function VaultCard({
             {tvl ?? '...'}
           </p>
         </div>
-      </div>
     </div>
   )
 }
