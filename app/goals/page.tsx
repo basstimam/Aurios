@@ -258,7 +258,7 @@ function GoalForm({
       className="bg-bg-card border border-border-default rounded-xl p-6 mb-6 shadow-card"
     >
       <h2 className="font-space-grotesk text-text-primary font-bold text-lg mb-5">
-        New Savings Goal
+        New Treasury Goal
       </h2>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -366,10 +366,10 @@ function EmptyState() {
     >
       <div className="text-4xl mb-3 text-text-tertiary select-none">◎</div>
       <p className="text-text-primary font-semibold font-space-grotesk">
-        No savings goals yet
+        No treasury goals yet
       </p>
       <p className="text-text-secondary text-sm mt-1 font-inter">
-        Create your first goal to start tracking progress
+        Set your first treasury target to start tracking deployment progress
       </p>
     </motion.div>
   )
@@ -390,7 +390,7 @@ export default function GoalsPage() {
       <AppLayout>
         <div className="max-w-6xl mx-auto px-8 py-20 text-center">
           <p className="text-text-secondary font-inter">
-            Connect your wallet to view savings goals
+            Connect your wallet to view treasury goals
           </p>
         </div>
       </AppLayout>
@@ -412,10 +412,10 @@ export default function GoalsPage() {
         >
           <div>
             <h1 className="text-2xl font-bold font-space-grotesk text-text-primary">
-              Savings Goals
+              Treasury Goals
             </h1>
             <p className="text-sm text-text-secondary mt-1 font-inter">
-              Track progress toward your financial targets
+              Track your team&apos;s treasury targets and capital deployment goals
             </p>
           </div>
           <button

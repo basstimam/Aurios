@@ -208,7 +208,7 @@ function HeroSection({ totalTvl, heroApy, heroRewardApy }: { totalTvl?: string; 
             className="rounded-lg px-6 py-3 font-space-grotesk text-sm font-semibold transition-opacity hover:opacity-90"
             style={{ backgroundColor: 'var(--accent-amber)', color: '#000000' }}
           >
-            Start Saving
+            Launch App
           </Link>
           <Link
             href="/docs"
@@ -306,7 +306,7 @@ function StatsStrip({ realTvl, avgApy, avgTotalApy }: { realTvl?: string; avgApy
     { label: 'Total TVL', value: realTvl ?? '...' },
     { label: 'Avg Native APY', value: avgApyLabel },
     { label: 'Avg Total APY', value: avgTotalLabel },
-    { label: 'Active Vaults', value: '3' },
+    { label: 'Active Vaults', value: '4' },
   ]
 
   return (
@@ -770,10 +770,11 @@ export default function LandingPage() {
   const { data: snapUSD } = useVaultSnapshot(VAULTS.yoUSD.address)
   const { data: snapETH } = useVaultSnapshot(VAULTS.yoETH.address)
   const { data: snapBTC } = useVaultSnapshot(VAULTS.yoBTC.address)
+  const { data: snapEUR } = useVaultSnapshot(VAULTS.yoEUR.address)
 
-  // Total TVL in USD across all 3 vaults (API returns USD for all)
-  const totalTvlUsd = (snapUSD && snapETH && snapBTC)
-    ? snapUSD.tvlRaw + snapETH.tvlRaw + snapBTC.tvlRaw
+  // Total TVL in USD across all 4 vaults
+  const totalTvlUsd = (snapUSD && snapETH && snapBTC && snapEUR)
+    ? snapUSD.tvlRaw + snapETH.tvlRaw + snapBTC.tvlRaw + snapEUR.tvlRaw
     : undefined
 
   const fmtTotalTvl = (v: number) =>
@@ -787,21 +788,22 @@ export default function LandingPage() {
   const apyUSD = snapUSD?.totalApyFormatted
   const apyETH = snapETH?.totalApyFormatted
   const apyBTC = snapBTC?.totalApyFormatted
+  const apyEUR = snapEUR?.totalApyFormatted
 
-  const avgApy = (snapUSD && snapETH && snapBTC)
-    ? (snapUSD.apy + snapETH.apy + snapBTC.apy) / 3
+  const avgApy = (snapUSD && snapETH && snapBTC && snapEUR)
+    ? (snapUSD.apy + snapETH.apy + snapBTC.apy + snapEUR.apy) / 4
     : undefined
 
-  const avgTotalApy = (snapUSD && snapETH && snapBTC)
-    ? (snapUSD.totalApy + snapETH.totalApy + snapBTC.totalApy) / 3
+  const avgTotalApy = (snapUSD && snapETH && snapBTC && snapEUR)
+    ? (snapUSD.totalApy + snapETH.totalApy + snapBTC.totalApy + snapEUR.totalApy) / 4
     : undefined
 
-  const bestTotalApy = (snapUSD && snapETH && snapBTC)
-    ? Math.max(snapUSD.totalApy, snapETH.totalApy, snapBTC.totalApy)
+  const bestTotalApy = (snapUSD && snapETH && snapBTC && snapEUR)
+    ? Math.max(snapUSD.totalApy, snapETH.totalApy, snapBTC.totalApy, snapEUR.totalApy)
     : undefined
 
-  const bestRewardApy = (snapUSD && snapETH && snapBTC)
-    ? Math.max(snapUSD.rewardApy, snapETH.rewardApy, snapBTC.rewardApy)
+  const bestRewardApy = (snapUSD && snapETH && snapBTC && snapEUR)
+    ? Math.max(snapUSD.rewardApy, snapETH.rewardApy, snapBTC.rewardApy, snapEUR.rewardApy)
     : undefined
 
   const liveVaults: LandingVault[] = [
@@ -840,6 +842,18 @@ export default function LandingPage() {
       accent: '#22C55E',
       tvl: snapBTC?.tvlUsd,
       minDeposit: '0.0001 cbBTC',
+    },
+    {
+      name: 'yoEUR Reserve',
+      asset: 'yoEUR',
+      apy: snapEUR?.apyFormatted ?? '...',
+      rewardApy: snapEUR?.rewardApy != null ? `${snapEUR.rewardApy.toFixed(2)}%` : '...',
+      totalApy: apyEUR ?? '...',
+      risk: 'Low',
+      status: 'Active',
+      accent: '#8B5CF6',
+      tvl: snapEUR?.tvlUsd,
+      minDeposit: '1 EURC',
     },
   ]
 
