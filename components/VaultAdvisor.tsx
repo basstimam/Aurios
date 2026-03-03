@@ -55,41 +55,41 @@ function getRecommendation(
   asset: Asset | null,
   horizon: Horizon | null
 ): Recommendation {
-  // EUR asset → yoEUR selalu
+  // EUR asset → always yoEUR
   if (asset === 'eur') {
-    return { vault: 'yoEUR', reason: 'Euro-denominated stable yield on EURC. Diversifikasi FX dari USD sambil tetap mendapat Merkl rewards on top.' }
+    return { vault: 'yoEUR', reason: 'Euro-denominated stable yield on EURC. FX diversification away from USD while still earning Merkl rewards on top.' }
   }
 
-  // Short-term → yoUSD (stabilitas, likuiditas tinggi)
+  // Short-term → yoUSD (stability, high liquidity)
   if (horizon === 'short') {
-    return { vault: 'yoUSD', reason: 'Untuk jangka pendek, yoUSD memberikan yield stablecoin terbaik dengan risiko minimal. Native yield + Merkl rewards berjalan otomatis.' }
+    return { vault: 'yoUSD', reason: 'For short-term holdings, yoUSD delivers the highest stablecoin yield with minimal risk. Native yield + Merkl rewards run automatically.' }
   }
 
   // ETH preference
   if (asset === 'eth' && (priority === 'growth' || horizon === 'long')) {
-    return { vault: 'yoETH', reason: 'ETH staking yield di WETH dengan long-term compounding. Merkl rewards menambah APY di atas yield native.' }
+    return { vault: 'yoETH', reason: 'ETH staking yield on WETH with long-term compounding. Merkl rewards stack on top of native vault APY.' }
   }
 
   // BTC preference
   if (asset === 'btc' && (priority === 'diversification' || priority === 'growth')) {
-    return { vault: 'yoBTC', reason: 'Eksposur BTC dengan yield on cbBTC. Pilihan diversifikasi yang menghasilkan return di atas holding biasa.' }
+    return { vault: 'yoBTC', reason: 'BTC exposure with yield on cbBTC. Diversification that earns returns above simply holding BTC.' }
   }
 
-  // Stablecoin atau stability priority
+  // Stablecoin or stability priority
   if (asset === 'stablecoins' || priority === 'stability') {
-    return { vault: 'yoUSD', reason: 'Yield stablecoin USDC tertinggi di antara semua vault, dengan Merkl rewards yang menjadikan total APY kompetitif.' }
+    return { vault: 'yoUSD', reason: 'Highest stablecoin yield across all vaults. Merkl rewards make the total APY highly competitive for treasury reserves.' }
   }
 
   // Priority-based fallbacks
   if (priority === 'growth') {
-    return { vault: 'yoETH', reason: 'Growth terbaik via ETH staking yield + Merkl rewards. Cocok untuk yang bullish ETH jangka menengah-panjang.' }
+    return { vault: 'yoETH', reason: 'Best growth via ETH staking yield + Merkl rewards. Ideal for those bullish on ETH over medium to long term.' }
   }
   if (priority === 'diversification') {
-    return { vault: 'yoBTC', reason: 'Tambah BTC yield ke portofolio untuk diversifikasi aset. Tidak perlu jual BTC — deposit cbBTC dan hasilkan yield.' }
+    return { vault: 'yoBTC', reason: 'Add BTC yield to your portfolio for asset diversification. No need to sell BTC — deposit cbBTC and earn yield.' }
   }
 
   // Default
-  return { vault: 'yoUSD', reason: 'Titik masuk terbaik untuk treasury DeFi. Yield stablecoin otomatis + Merkl rewards tanpa eksposur volatilitas.' }
+  return { vault: 'yoUSD', reason: 'Best entry point for DeFi treasury management. Automated stablecoin yield + Merkl rewards with no volatility exposure.' }
 }
 
 // ── Pill Button ───────────────────────────────────────────────────────────────

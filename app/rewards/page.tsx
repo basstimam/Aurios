@@ -111,8 +111,8 @@ export default function RewardsPage() {
               <p className="font-space-grotesk text-text-primary font-semibold text-sm">Vault Yield</p>
             </div>
             <p className="font-inter text-text-secondary text-sm leading-relaxed">
-              Base APY yang otomatis di-compound ke dalam harga share vault. Yield ini terus berjalan selama
-              dana kamu berada di vault — tidak perlu tindakan apapun. Nilainya tercermin langsung di halaman Dashboard.
+              Base APY automatically compounded into the vault share price. This yield runs
+              continuously while funds are deposited — no action required. Reflected in real-time on the Dashboard.
             </p>
           </div>
           <div className="bg-bg-card border border-border-default rounded-xl p-5 shadow-card">
@@ -124,10 +124,11 @@ export default function RewardsPage() {
               <p className="font-space-grotesk text-text-primary font-semibold text-sm">Merkl Rewards</p>
             </div>
             <p className="font-inter text-text-secondary text-sm leading-relaxed">
-              Insentif token tambahan yang didistribusikan oleh{' '}
+              Additional token incentives distributed by{' '}
               <a href="https://merkl.angle.money" target="_blank" rel="noopener noreferrer" className="text-accent-amber hover:underline">Merkl</a>
-              {' '}di atas vault yield. Reward ini <span className="text-text-primary font-medium">tidak otomatis</span> —
-              harus di-claim secara manual lewat halaman ini setiap kali ada saldo claimable.
+              {' '}on top of vault yield. These rewards are{' '}
+              <span className="text-text-primary font-medium">not automatic</span> —
+              they must be manually claimed from this page whenever there is a claimable balance.
             </p>
           </div>
         </motion.div>
