@@ -48,28 +48,41 @@ export function useRedeem() {
 
         const shares = parseTokenAmount(sharesString, vault.decimals)
 
-        // minAssetsOut: 0n bypasses the gateway's InsufficientAssetsOut (#1002) check.
-        // Per official SDK docs: https://docs.yo.xyz/integrations/technical-guides/sdk/core/actions#redeem
-        // The SDK uses nullish coalescing: `params.minAssetsOut ?? applySlippage(...)`
-        // so 0n (not null/undefined) correctly overrides slippageBps.
-        // This is safe — vault's requestRedeem is trusted, exchange rate only goes up.
         const redeemParams = {
           vault: vault.address,
           shares,
           owner: recipient,
           recipient,
+          // minAssetsOut: 0n bypasses gateway InsufficientAssetsOut (#1002).
+          // SDK: `params.minAssetsOut ?? applySlippage(...)` — 0n is not null/undefined.
+          // Ref: https://docs.yo.xyz/integrations/technical-guides/sdk/core/actions#redeem
           minAssetsOut: 0n,
         }
 
-        // ── Step 1: Prepare redeem with auto-approval ─────────────────────
-        // SDK checks share allowance on-chain and returns:
-        //   [approveTx, redeemTx] if approval needed
-        //   [redeemTx]            if already approved
-        let txs = await yo.prepareRedeemWithApproval(redeemParams)
+        console.debug('[useRedeem] params:', {
+          vault: redeemParams.vault,
+          shares: redeemParams.shares.toString(),
+          sharesString,
+          vaultDecimals: vault.decimals,
+          minAssetsOut: redeemParams.minAssetsOut.toString(),
+          recipient,
+        })
 
-        // ── Step 2: If approval needed, send it first then re-prepare ────
-        // Re-preparing after approval ensures fresh calldata post-confirmation.
+        // ── Step 1: Prepare ───────────────────────────────────────────────────
+        console.debug('[useRedeem] calling prepareRedeemWithApproval...')
+        const txs = await yo.prepareRedeemWithApproval(redeemParams)
+        console.debug('[useRedeem] prepareRedeemWithApproval result, count:', txs.length)
+        txs.forEach((tx, i) =>
+          console.debug(`[useRedeem] prepared tx[${i}]:`, {
+            to: tx.to,
+            data: tx.data,       // full calldata — decode at https://abi.hashex.org/
+            value: tx.value?.toString(),
+          })
+        )
+
+        // ── Step 2: Approval if needed ────────────────────────────────────────
         if (txs.length > 1) {
+          console.debug('[useRedeem] approval needed, sending...')
           const approvalTx = txs[0]
           const approvalHash = await walletClient.sendTransaction({
             to: approvalTx.to,
@@ -80,21 +93,52 @@ export function useRedeem() {
           })
 
           const approvalReceipt = await yo.waitForTransaction(approvalHash)
+          console.debug('[useRedeem] approval receipt status:', approvalReceipt.status)
           if (approvalReceipt.status === 'reverted') {
             throw new Error('Share approval transaction reverted on-chain')
           }
 
-          // Re-prepare — approval done, so this returns [redeemTx] only
-          txs = await yo.prepareRedeemWithApproval(redeemParams)
+          // Re-prepare with fresh calldata after approval
+          const txs2 = await yo.prepareRedeemWithApproval(redeemParams)
+          console.debug('[useRedeem] re-prepared after approval, count:', txs2.length)
+          txs2.forEach((tx, i) =>
+            console.debug(`[useRedeem] re-prepared tx[${i}]:`, { to: tx.to, data: tx.data, value: tx.value?.toString() })
+          )
+
+          if (txs2.length !== 1) throw new Error('Unexpected number of prepared transactions after approval')
+
+          setState('redeeming')
+          const redeemTx = txs2[0]
+          console.debug('[useRedeem] sending redeem tx (post-approval):', { to: redeemTx.to, data: redeemTx.data })
+          const redeemHash = await walletClient.sendTransaction({
+            to: redeemTx.to,
+            data: redeemTx.data,
+            value: redeemTx.value,
+            account: recipient,
+            chain: walletClient.chain,
+          })
+
+          setState('confirming')
+          setTxHash(redeemHash)
+          console.debug('[useRedeem] redeem tx sent (post-approval):', redeemHash)
+
+          const receipt = await yo.waitForTransaction(redeemHash)
+          console.debug('[useRedeem] receipt status (post-approval):', receipt.status)
+          if (receipt.status === 'reverted') {
+            throw new Error('Redeem transaction reverted on-chain. Please try again.')
+          }
+
+          void recordRedeem({ wallet: recipient.toLowerCase(), vault, shares, txHash: redeemHash })
+          setState('success')
+          return
         }
 
-        // ── Step 3: Send redeem transaction ───────────────────────────────
-        if (txs.length !== 1) {
-          throw new Error('Unexpected number of prepared transactions')
-        }
+        // ── Step 3: No approval needed — send redeem directly ─────────────────
+        if (txs.length !== 1) throw new Error('Unexpected number of prepared transactions')
 
         setState('redeeming')
         const redeemTx = txs[0]
+        console.debug('[useRedeem] sending redeem tx:', { to: redeemTx.to, data: redeemTx.data })
         const redeemHash = await walletClient.sendTransaction({
           to: redeemTx.to,
           data: redeemTx.data,
@@ -105,20 +149,18 @@ export function useRedeem() {
 
         setState('confirming')
         setTxHash(redeemHash)
+        console.debug('[useRedeem] redeem tx sent:', redeemHash)
 
         const receipt = await yo.waitForTransaction(redeemHash)
+        console.debug('[useRedeem] receipt status:', receipt.status)
         if (receipt.status === 'reverted') {
           throw new Error('Redeem transaction reverted on-chain. Please try again.')
         }
 
-        void recordRedeem({
-          wallet: recipient.toLowerCase(),
-          vault,
-          shares,
-          txHash: redeemHash,
-        })
+        void recordRedeem({ wallet: recipient.toLowerCase(), vault, shares, txHash: redeemHash })
         setState('success')
       } catch (err: unknown) {
+        console.error('[useRedeem] ERROR:', err)
         const message =
           err instanceof Error ? err.message : 'Transaction failed'
         setError(message)
@@ -150,7 +192,6 @@ function parseTokenAmount(amount: string, decimals: number): bigint {
 // Record redeem to Supabase (best-effort)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Look up the user's team_id from Supabase (returns null if not in a team) */
 async function lookupTeamId(wallet: string): Promise<string | null> {
   try {
     const { data } = await supabase
@@ -199,6 +240,6 @@ async function recordRedeem({
       confirmed_at: new Date().toISOString(),
     })
   } catch {
-    // Non-critical - don't propagate
+    // Non-critical
   }
 }

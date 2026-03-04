@@ -34,7 +34,11 @@ const stagger: Variants = {
 
 function fmtBalance(val: bigint, decimals: number): string {
   const precision = decimals > 6 ? 6 : 2
-  return parseFloat(formatUnits(val, decimals)).toFixed(precision)
+  const full = formatUnits(val, decimals)
+  const [whole, frac = ''] = full.split('.')
+  // Truncate (floor), never round — prevents requesting more shares than actual on-chain balance.
+  // toFixed() rounds up (e.g. 1.2355 → "1.24"), causing safeTransferFrom to revert.
+  return `${whole}.${frac.slice(0, precision).padEnd(precision, '0')}`
 }
 
 function RedeemContent() {

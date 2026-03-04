@@ -54,7 +54,10 @@ function parseTokenAmount(amount: string, decimals: number): bigint {
 /** Format bigint shares to human-readable string */
 function formatShares(shares: bigint, decimals: number): string {
   const precision = decimals > 6 ? 6 : decimals
-  return parseFloat(formatUnits(shares, decimals)).toFixed(precision)
+  const full = formatUnits(shares, decimals)
+  const [whole, frac = ''] = full.split('.')
+  // Truncate, never round — prevents downstream amount mismatches
+  return `${whole}.${frac.slice(0, precision).padEnd(precision, '0')}`
 }
 
 // ── Info Icon ─────────────────────────────────────────────────────────────────
@@ -108,10 +111,14 @@ function EnterAmountContent() {
 
   const balanceStr =
     balanceRaw != null && vault
-      ? parseFloat(formatUnits(balanceRaw as bigint, vault.decimals)).toFixed(
-          vault.decimals > 6 ? 6 : 2
-        )
-      : '...'
+      ? (() => {
+          const precision = vault.decimals > 6 ? 6 : 2
+          const full = formatUnits(balanceRaw as bigint, vault.decimals)
+          const [whole, frac = ''] = full.split('.')
+          // Truncate, never round — prevents depositing more than actual balance
+          return `${whole}.${frac.slice(0, precision).padEnd(precision, '0')}`
+        })()
+      : '..'
 
   const parsed = parseFloat(amount)
   const isValid =
