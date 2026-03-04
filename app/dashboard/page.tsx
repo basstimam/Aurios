@@ -240,7 +240,7 @@ function PendingRedemptionsSection() {
     { vault: VAULTS.yoUSD, data: pendingUSD },
     { vault: VAULTS.yoETH, data: pendingETH },
     { vault: VAULTS.yoBTC, data: pendingBTC },
-  ].filter((p) => p.data != null && (p.data.shares?.raw ?? 0) > 0)
+  ].filter((p) => p.data != null && Number(p.data.shares?.raw ?? 0) > 0)
 
   if (allPending.length === 0) return null
 

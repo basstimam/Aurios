@@ -3,22 +3,19 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
 import { useYoClient } from './useYoClient'
-
-export interface PendingRedemptions {
-  assets: { raw: number; formatted: string }
-  shares: { raw: number; formatted: string }
-}
+import type { PendingRedeem } from '@yo-protocol/core'
 
 export function usePendingRedemptions(vaultAddress: `0x${string}`) {
   const { yo } = useYoClient()
   const { address } = useAccount()
 
-  return useQuery<PendingRedemptions | null>({
+  return useQuery<PendingRedeem | null>({
     queryKey: ['pendingRedemptions', vaultAddress, address],
-    queryFn: async (): Promise<PendingRedemptions | null> => {
+    queryFn: async () => {
       if (!yo || !address) return null
-      const result: unknown = await yo.getPendingRedemptions(vaultAddress, address)
-      return result as PendingRedemptions | null
+      const pending = await yo.getPendingRedemptions(vaultAddress, address)
+      if (!pending?.assets && !pending?.shares) return null
+      return pending
     },
     enabled: !!yo && !!address && !!vaultAddress,
     staleTime: 30_000,

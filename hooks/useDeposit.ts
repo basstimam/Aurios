@@ -8,6 +8,9 @@ import type { VaultKey } from '@/lib/contracts/vaults'
 import { supabase } from '@/lib/supabase'
 import { formatUnits } from 'viem'
 
+/** Default slippage in basis points (1%) — matches official YoGateway docs example */
+const DEFAULT_SLIPPAGE_BPS = 100
+
 type DepositState = 'idle' | 'approving' | 'depositing' | 'confirming' | 'success' | 'error'
 export function useDeposit() {
   const [state, setState] = useState<DepositState>('idle')
@@ -45,56 +48,66 @@ export function useDeposit() {
 
         const amount = parseTokenAmount(amountString, vault.decimals)
 
-        // ── Step 1: Prepare deposit with auto-approval ────────────────────
-        // SDK checks asset allowance on-chain and returns:
-        //   [approveTx, depositTx] if approval needed
-        //   [depositTx]            if already approved
-        const txs = await yo.prepareDepositWithApproval({
+        const depositParams = {
           vault: vault.address,
           amount,
           recipient,
           token: vault.asset,
           owner: recipient,
-        })
+          slippageBps: DEFAULT_SLIPPAGE_BPS,
+        }
 
-        // ── Step 2: Send each transaction sequentially ─────────────────────
-        let depositHash: `0x${string}` | null = null
+        // ── Step 1: Prepare deposit with auto-approval ────────────────────
+        // SDK checks asset allowance on-chain and returns:
+        //   [approveTx, depositTx] if approval needed
+        //   [depositTx]            if already approved
+        let txs = await yo.prepareDepositWithApproval(depositParams)
 
-        for (let i = 0; i < txs.length; i++) {
-          const tx = txs[i]
-          const isLast = i === txs.length - 1
-
-          if (!isLast) {
-            setState('approving')
-          } else {
-            setState('depositing')
-          }
-
-          const hash = await walletClient.sendTransaction({
-            to: tx.to as `0x${string}`,
-            data: tx.data as `0x${string}`,
-            value: tx.value,
-            account: walletClient.account!,
+        // ── Step 2: If approval needed, send it first then re-prepare ────
+        // Re-preparing after approval gets a fresh quote for minSharesOut,
+        // preventing stale quote reverts
+        if (txs.length > 1) {
+          const approvalTx = txs[0]
+          const approvalHash = await walletClient.sendTransaction({
+            to: approvalTx.to,
+            data: approvalTx.data,
+            value: approvalTx.value,
+            account: recipient,
             chain: walletClient.chain,
           })
 
-          const receipt = await yo.waitForTransaction(hash)
-          if (receipt.status === 'reverted') {
-            throw new Error('Transaction reverted on-chain. Please try again with a smaller amount.')
+          const approvalReceipt = await yo.waitForTransaction(approvalHash)
+          if (approvalReceipt.status === 'reverted') {
+            throw new Error('Asset approval transaction reverted on-chain')
           }
 
-          if (isLast) {
-            depositHash = hash
-          }
+          // Re-prepare with fresh quote (approval already done → returns [depositTx] only)
+          txs = await yo.prepareDepositWithApproval(depositParams)
         }
 
-        if (!depositHash) {
-          throw new Error('No deposit transaction was sent')
+        // ── Step 3: Send deposit transaction ──────────────────────────────
+        if (txs.length !== 1) {
+          throw new Error('Unexpected number of prepared transactions')
         }
 
-        // ── Step 3: Confirm ──────────────────────────────────────────────
+        setState('depositing')
+        const depositTx = txs[0]
+        const depositHash = await walletClient.sendTransaction({
+          to: depositTx.to,
+          data: depositTx.data,
+          value: depositTx.value,
+          account: recipient,
+          chain: walletClient.chain,
+        })
+
+        // ── Step 4: Confirm transaction ──────────────────────────────────
         setState('confirming')
         setTxHash(depositHash)
+
+        const receipt = await yo.waitForTransaction(depositHash)
+        if (receipt.status === 'reverted') {
+          throw new Error('Deposit transaction reverted on-chain. Please try again with a smaller amount.')
+        }
 
         void recordDeposit({
           wallet: recipient.toLowerCase(),

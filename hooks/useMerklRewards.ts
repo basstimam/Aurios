@@ -36,17 +36,23 @@ export function useClaimMerklRewards() {
     mutationFn: async (chainRewards: MerklChainRewards) => {
       if (!yo || !walletClient || !address) throw new Error('YO client not initialized')
 
+      const account = walletClient.account?.address
+      if (!account) throw new Error('Wallet account not found')
+
       const tx = yo.prepareClaimMerklRewards(address, chainRewards)
 
       const hash = await walletClient.sendTransaction({
-        to: tx.to as `0x${string}`,
-        data: tx.data as `0x${string}`,
+        to: tx.to,
+        data: tx.data,
         value: tx.value,
-        account: walletClient.account!,
+        account,
         chain: walletClient.chain,
       })
 
-      await yo.waitForTransaction(hash)
+      const receipt = await yo.waitForTransaction(hash)
+      if (receipt.status === 'reverted') {
+        throw new Error('Claim transaction reverted on-chain')
+      }
       return hash
     },
     onSuccess: () => {

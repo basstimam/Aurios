@@ -10,8 +10,8 @@ import { formatUnits } from 'viem'
 
 type RedeemState = 'idle' | 'approving' | 'redeeming' | 'confirming' | 'success' | 'queued' | 'error'
 
-/** Default slippage in basis points (0.5%) */
-const DEFAULT_SLIPPAGE_BPS = 50
+/** Default slippage in basis points (1%) — matches official YoGateway docs example */
+const DEFAULT_SLIPPAGE_BPS = 100
 
 export function useRedeem() {
   const [state, setState] = useState<RedeemState>('idle')
@@ -51,56 +51,65 @@ export function useRedeem() {
 
         const shares = parseTokenAmount(sharesString, vault.decimals)
 
-        // ── Step 1: Prepare redeem with auto-approval ─────────────────────
-        // SDK checks share allowance on-chain and returns:
-        //   [approveTx, redeemTx] if approval needed
-        //   [redeemTx]            if already approved
-        const txs = await yo.prepareRedeemWithApproval({
+        const redeemParams = {
           vault: vault.address,
           shares,
           owner: recipient,
           recipient,
           slippageBps: DEFAULT_SLIPPAGE_BPS,
-        })
+        }
 
-        // ── Step 2: Send each transaction sequentially ────────────────────
-        let redeemHash: `0x${string}` | null = null
+        // ── Step 1: Prepare redeem with auto-approval ─────────────────────
+        // SDK checks share allowance on-chain and returns:
+        //   [approveTx, redeemTx] if approval needed
+        //   [redeemTx]            if already approved
+        let txs = await yo.prepareRedeemWithApproval(redeemParams)
 
-        for (let i = 0; i < txs.length; i++) {
-          const tx = txs[i]
-          const isLast = i === txs.length - 1
-
-          if (!isLast) {
-            setState('approving')
-          } else {
-            setState('redeeming')
-          }
-
-          const hash = await walletClient.sendTransaction({
-            to: tx.to as `0x${string}`,
-            data: tx.data as `0x${string}`,
-            value: tx.value,
-            account: walletClient.account!,
+        // ── Step 2: If approval needed, send it first then re-prepare ────
+        // Re-preparing after approval gets a fresh quote for minAssetsOut,
+        // preventing Gateway__InsufficientAssetsOut (#1002) from stale quotes
+        if (txs.length > 1) {
+          const approvalTx = txs[0]
+          const approvalHash = await walletClient.sendTransaction({
+            to: approvalTx.to,
+            data: approvalTx.data,
+            value: approvalTx.value,
+            account: recipient,
             chain: walletClient.chain,
           })
 
-          const receipt = await yo.waitForTransaction(hash)
-          if (receipt.status === 'reverted') {
-            throw new Error('Transaction reverted on-chain. You may have insufficient shares or the vault exchange rate changed.')
+          const approvalReceipt = await yo.waitForTransaction(approvalHash)
+          if (approvalReceipt.status === 'reverted') {
+            throw new Error('Share approval transaction reverted on-chain')
           }
 
-          if (isLast) {
-            redeemHash = hash
-          }
+          // Re-prepare with fresh quote (approval already done → returns [redeemTx] only)
+          txs = await yo.prepareRedeemWithApproval(redeemParams)
         }
 
-        if (!redeemHash) {
-          throw new Error('No redeem transaction was sent')
+        // ── Step 3: Send redeem transaction ───────────────────────────────
+        if (txs.length !== 1) {
+          throw new Error('Unexpected number of prepared transactions')
         }
 
-        // ── Step 3: Confirm transaction ──────────────────────────────────
+        setState('redeeming')
+        const redeemTx = txs[0]
+        const redeemHash = await walletClient.sendTransaction({
+          to: redeemTx.to,
+          data: redeemTx.data,
+          value: redeemTx.value,
+          account: recipient,
+          chain: walletClient.chain,
+        })
+
+        // ── Step 4: Confirm transaction ──────────────────────────────────
         setState('confirming')
         setTxHash(redeemHash)
+
+        const receipt = await yo.waitForTransaction(redeemHash)
+        if (receipt.status === 'reverted') {
+          throw new Error('Redeem transaction reverted on-chain. The vault exchange rate may have changed — please try again.')
+        }
 
         void recordRedeem({
           wallet: recipient.toLowerCase(),
