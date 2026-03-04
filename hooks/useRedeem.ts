@@ -12,6 +12,7 @@ type RedeemState = 'idle' | 'approving' | 'redeeming' | 'confirming' | 'success'
 
 /** Default slippage in basis points (1%) — matches official YoGateway docs example */
 const DEFAULT_SLIPPAGE_BPS = 100
+const REDEEM_SLIPPAGE_RETRY_BPS = [100, 200, 400] as const
 
 export function useRedeem() {
   const [state, setState] = useState<RedeemState>('idle')
@@ -51,19 +52,21 @@ export function useRedeem() {
 
         const shares = parseTokenAmount(sharesString, vault.decimals)
 
-        const redeemParams = {
+        const baseRedeemParams = {
           vault: vault.address,
           shares,
           owner: recipient,
           recipient,
-          slippageBps: DEFAULT_SLIPPAGE_BPS,
         }
 
         // ── Step 1: Prepare redeem with auto-approval ─────────────────────
         // SDK checks share allowance on-chain and returns:
         //   [approveTx, redeemTx] if approval needed
         //   [redeemTx]            if already approved
-        let txs = await yo.prepareRedeemWithApproval(redeemParams)
+        let txs = await yo.prepareRedeemWithApproval({
+          ...baseRedeemParams,
+          slippageBps: DEFAULT_SLIPPAGE_BPS,
+        })
 
         // ── Step 2: If approval needed, send it first then re-prepare ────
         // Re-preparing after approval gets a fresh quote for minAssetsOut,
@@ -84,7 +87,10 @@ export function useRedeem() {
           }
 
           // Re-prepare with fresh quote (approval already done → returns [redeemTx] only)
-          txs = await yo.prepareRedeemWithApproval(redeemParams)
+          txs = await yo.prepareRedeemWithApproval({
+            ...baseRedeemParams,
+            slippageBps: DEFAULT_SLIPPAGE_BPS,
+          })
         }
 
         // ── Step 3: Send redeem transaction ───────────────────────────────
@@ -92,23 +98,54 @@ export function useRedeem() {
           throw new Error('Unexpected number of prepared transactions')
         }
 
-        setState('redeeming')
-        const redeemTx = txs[0]
-        const redeemHash = await walletClient.sendTransaction({
-          to: redeemTx.to,
-          data: redeemTx.data,
-          value: redeemTx.value,
-          account: recipient,
-          chain: walletClient.chain,
-        })
+        let redeemHash: `0x${string}` | null = null
+        let lastError: unknown = null
 
-        // ── Step 4: Confirm transaction ──────────────────────────────────
-        setState('confirming')
-        setTxHash(redeemHash)
+        for (const slippageBps of REDEEM_SLIPPAGE_RETRY_BPS) {
+          try {
+            const retryTxs = await yo.prepareRedeemWithApproval({
+              ...baseRedeemParams,
+              slippageBps,
+            })
 
-        const receipt = await yo.waitForTransaction(redeemHash)
-        if (receipt.status === 'reverted') {
-          throw new Error('Redeem transaction reverted on-chain. The vault exchange rate may have changed — please try again.')
+            if (retryTxs.length !== 1) {
+              throw new Error('Unexpected prepared transactions during redeem retry')
+            }
+
+            setState('redeeming')
+            const redeemTx = retryTxs[0]
+            const hash = await walletClient.sendTransaction({
+              to: redeemTx.to,
+              data: redeemTx.data,
+              value: redeemTx.value,
+              account: recipient,
+              chain: walletClient.chain,
+            })
+
+            setState('confirming')
+            setTxHash(hash)
+
+            const receipt = await yo.waitForTransaction(hash)
+            if (receipt.status === 'reverted') {
+              throw new Error('Redeem transaction reverted on-chain (#1002)')
+            }
+
+            redeemHash = hash
+            break
+          } catch (retryError: unknown) {
+            lastError = retryError
+            if (isUserRejectedError(retryError) || !isSlippageError(retryError)) {
+              throw retryError
+            }
+          }
+        }
+
+        if (!redeemHash) {
+          throw new Error(
+            lastError instanceof Error
+              ? `Redeem failed after slippage retries: ${lastError.message}`
+              : 'Redeem failed after slippage retries'
+          )
         }
 
         void recordRedeem({
@@ -144,6 +181,25 @@ function parseTokenAmount(amount: string, decimals: number): bigint {
   const [whole = '0', fraction = ''] = amount.split('.')
   const paddedFraction = fraction.padEnd(decimals, '0').slice(0, decimals)
   return BigInt(whole + paddedFraction)
+}
+
+function isSlippageError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const m = error.message.toLowerCase()
+  return m.includes('#1002')
+    || m.includes('insufficientassetsout')
+    || m.includes('minassetsout')
+    || m.includes('simulation failed')
+    || m.includes('exchange rate may have changed')
+}
+
+function isUserRejectedError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const m = error.message.toLowerCase()
+  return m.includes('user rejected')
+    || m.includes('user denied')
+    || m.includes('rejected request')
+    || m.includes('request rejected')
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
