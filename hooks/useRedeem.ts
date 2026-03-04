@@ -84,7 +84,10 @@ export function useRedeem() {
             chain: walletClient.chain,
           })
 
-          await yo.waitForTransaction(hash)
+          const receipt = await yo.waitForTransaction(hash)
+          if (receipt.status === 'reverted') {
+            throw new Error('Transaction reverted on-chain. You may have insufficient shares or the vault exchange rate changed.')
+          }
 
           if (isLast) {
             redeemHash = hash

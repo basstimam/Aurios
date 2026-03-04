@@ -489,12 +489,12 @@ function normalizeSdkEntry(
   vaultName: string
 ): DisplayTx {
   return {
-    id: entry.txHash ? `sdk-${entry.txHash}` : `sdk-${entry.timestamp}-${vaultName}`,
+    id: entry.transactionHash ? `sdk-${entry.transactionHash}` : `sdk-${entry.blockTimestamp}-${vaultName}`,
     action: entry.type,
     vaultName,
-    amountDisplay: entry.amount?.formatted ?? '...',
-    txHash: entry.txHash || null,
-    timestamp: new Date(entry.timestamp * 1000),
+    amountDisplay: entry.assets?.formatted ?? '...',
+    txHash: entry.transactionHash || null,
+    timestamp: entry.blockTimestamp ? new Date(entry.blockTimestamp * 1000) : new Date(entry.createdAt),
     source: 'sdk',
   }
 }

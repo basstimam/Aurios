@@ -78,7 +78,10 @@ export function useDeposit() {
             chain: walletClient.chain,
           })
 
-          await yo.waitForTransaction(hash)
+          const receipt = await yo.waitForTransaction(hash)
+          if (receipt.status === 'reverted') {
+            throw new Error('Transaction reverted on-chain. Please try again with a smaller amount.')
+          }
 
           if (isLast) {
             depositHash = hash
