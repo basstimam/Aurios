@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useAccount } from 'wagmi'
+import { useWalletConnected } from '@/hooks/useWalletConnected'
 import { formatUnits } from 'viem'
 import { motion, type Variants } from 'framer-motion'
 import { AppLayout, VaultCard, VaultIcon } from '@/components'
@@ -125,7 +125,7 @@ function VaultCardWrapper({
 // ── PortfolioStats ────────────────────────────────────────────────────────────
 
 function PortfolioStats() {
-  const { isConnected } = useAccount()
+  const isConnected = useWalletConnected()
 
   const { data: posUSD } = useUserPosition(VAULTS.yoUSD.address)
   const { data: posETH } = useUserPosition(VAULTS.yoETH.address)
@@ -227,7 +227,7 @@ function PortfolioStats() {
 // ── PendingRedemptionsSection ──────────────────────────────────────────────────
 
 function PendingRedemptionsSection() {
-  const { isConnected } = useAccount()
+  const isConnected = useWalletConnected()
 
   // Feature #4: ALL hooks before early return
   const { data: pendingUSD } = usePendingRedemptions(VAULTS.yoUSD.address)
@@ -295,7 +295,7 @@ function PendingRedemptionsSection() {
 
 function PositionsTable() {
   const router = useRouter()
-  const { isConnected } = useAccount()
+  const isConnected = useWalletConnected()
 
   const { data: posUSD } = useUserPosition(VAULTS.yoUSD.address)
   const { data: posETH } = useUserPosition(VAULTS.yoETH.address)
@@ -512,7 +512,7 @@ function normalizeSupabaseTx(tx: Transaction): DisplayTx {
 }
 
 function TxHistorySection() {
-  const { isConnected } = useAccount()
+  const isConnected = useWalletConnected()
   const { data: txs = [], isLoading } = useTransactions(10)
 
   // Feature #6: SDK history for all 3 vaults - hooks BEFORE early return
@@ -646,7 +646,7 @@ function TxHistorySection() {
 // ── MerklRewardsSection ──────────────────────────────────────────────────────────────
 
 function MerklRewardsSection() {
-  const { isConnected } = useAccount()
+  const isConnected = useWalletConnected()
   const { data: rewards, isLoading } = useMerklRewards()
   const { claim, isPending, isSuccess, error } = useClaimMerklRewards()
 
@@ -740,7 +740,7 @@ function MerklRewardsSection() {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { isConnected } = useAccount()
+  const isConnected = useWalletConnected()
   return (
     <AppLayout>
       <motion.div

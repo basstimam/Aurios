@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { usePrivy, useLogin } from '@privy-io/react-auth'
+import { useWalletConnected } from '@/hooks/useWalletConnected'
 import { motion, type Variants } from 'framer-motion'
 import { AppLayout } from '@/components'
 import { useTeam, useTeamMembers, useCreateTeam, useInviteMember, useUpdateMember, usePendingInvite, useRespondInvite } from '@/hooks/useTeam'
@@ -412,7 +413,8 @@ function PendingInviteBanner({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function TeamPage() {
-  const { isConnected, address } = useAccount()
+  const isConnected = useWalletConnected()
+  const { address } = useAccount()
   const { ready } = usePrivy()
   const { login } = useLogin()
   const [showCreateModal, setShowCreateModal] = useState(false)
