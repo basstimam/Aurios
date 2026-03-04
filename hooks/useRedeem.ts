@@ -95,25 +95,17 @@ export function useRedeem() {
           throw new Error('No redeem transaction was sent')
         }
 
-        // ── Step 3: Wait for redeem receipt ───────────────────────────────
+        // ── Step 3: Confirm transaction ──────────────────────────────────
         setState('confirming')
-        const receipt = await yo.waitForRedeemReceipt(redeemHash)
-
         setTxHash(redeemHash)
 
-        if (receipt.instant) {
-          void recordRedeem({
-            wallet: recipient.toLowerCase(),
-            vault,
-            shares,
-            txHash: redeemHash,
-          })
-          setState('success')
-        } else {
-          setIsQueued(true)
-          setRequestId(String(receipt.assetsOrRequestId))
-          setState('queued')
-        }
+        void recordRedeem({
+          wallet: recipient.toLowerCase(),
+          vault,
+          shares,
+          txHash: redeemHash,
+        })
+        setState('success')
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : 'Transaction failed'
