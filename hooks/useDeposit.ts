@@ -6,8 +6,8 @@ import { useAccount } from 'wagmi'
 import { VAULTS } from '@/lib/contracts/vaults'
 import type { VaultKey } from '@/lib/contracts/vaults'
 import { supabase } from '@/lib/supabase'
-import { formatUnits, erc20Abi, maxUint256 } from 'viem'
-import { ADDRESSES } from '@/lib/contracts/addresses'
+import { formatUnits } from 'viem'
+
 type DepositState = 'idle' | 'approving' | 'depositing' | 'confirming' | 'success' | 'error'
 export function useDeposit() {
   const [state, setState] = useState<DepositState>('idle')
@@ -45,43 +45,59 @@ export function useDeposit() {
 
         const amount = parseTokenAmount(amountString, vault.decimals)
 
-        const gatewayAddress = ADDRESSES.yoGateway
-
-        const allowance = await yo.publicClient.readContract({
-          address: vault.asset,
-          abi: erc20Abi,
-          functionName: 'allowance',
-          args: [recipient, gatewayAddress],
-        })
-
-        if (allowance < amount) {
-          const approveTx = await walletClient.writeContract({
-            address: vault.asset,
-            abi: erc20Abi,
-            functionName: 'approve',
-            args: [gatewayAddress, maxUint256],
-            account: walletClient.account!,
-            chain: walletClient.chain,
-          })
-          await yo.publicClient.waitForTransactionReceipt({ hash: approveTx })
-        }
-
-        setState('depositing')
-        const result = await yo.deposit({
+        // ── Step 1: Prepare deposit with auto-approval ────────────────────
+        // SDK checks asset allowance on-chain and returns:
+        //   [approveTx, depositTx] if approval needed
+        //   [depositTx]            if already approved
+        const txs = await yo.prepareDepositWithApproval({
           vault: vault.address,
           amount,
           recipient,
+          token: vault.asset,
+          owner: recipient,
         })
 
+        // ── Step 2: Send each transaction sequentially ─────────────────────
+        let depositHash: `0x${string}` | null = null
+
+        for (let i = 0; i < txs.length; i++) {
+          const tx = txs[i]
+          const isLast = i === txs.length - 1
+
+          if (!isLast) {
+            setState('approving')
+          } else {
+            setState('depositing')
+          }
+
+          const hash = await walletClient.sendTransaction({
+            to: tx.to as `0x${string}`,
+            data: tx.data as `0x${string}`,
+            value: tx.value,
+            account: walletClient.account!,
+            chain: walletClient.chain,
+          })
+
+          await yo.waitForTransaction(hash)
+
+          if (isLast) {
+            depositHash = hash
+          }
+        }
+
+        if (!depositHash) {
+          throw new Error('No deposit transaction was sent')
+        }
+
+        // ── Step 3: Confirm ──────────────────────────────────────────────
         setState('confirming')
-        await yo.waitForTransaction(result.hash)
-        setTxHash(result.hash)
+        setTxHash(depositHash)
 
         void recordDeposit({
           wallet: recipient.toLowerCase(),
           vault,
           amount,
-          txHash: result.hash,
+          txHash: depositHash,
         })
 
         setState('success')

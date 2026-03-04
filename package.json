@@ -13,7 +13,7 @@
     "@privy-io/wagmi": "^4.0.2",
     "@supabase/supabase-js": "^2.98.0",
     "@tanstack/react-query": "^5.90.21",
-    "@yo-protocol/core": "^0.0.3",
+    "@yo-protocol/core": "^1.0.4",
     "@yo-protocol/react": "^0.0.3",
     "framer-motion": "^12.34.3",
     "next": "^15.5.12",

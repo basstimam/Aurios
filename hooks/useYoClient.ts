@@ -57,11 +57,10 @@ export function useYoClient() {
     if (!publicClient) return null
     return createYoClient({
       chainId: BASE_CHAIN_ID,
-      publicClient: publicClient as any,
-      walletClient: (walletClient ?? undefined) as any,
+      publicClients: { [BASE_CHAIN_ID]: publicClient as any },
       partnerId: 9999,
     })
-  }, [publicClient, walletClient])
+  }, [publicClient])
 
   return { yo, walletClient, publicClient }
 }

@@ -51,50 +51,62 @@ export function useRedeem() {
 
         const shares = parseTokenAmount(sharesString, vault.decimals)
 
-        // ── Step 1: Check share allowance and approve if needed ────────────
-        const allowance = await yo.getShareAllowance(vault.address, recipient)
-
-        if (allowance < shares) {
-          const approveResult = await yo.approveMax(vault.address)
-          await yo.waitForTransaction(approveResult.hash)
-
-          // Poll gateway allowance until it reflects the new approval
-          // RPC nodes can serve stale state — wait up to 5s
-          let retries = 10
-          let currentAllowance = allowance
-          while (retries > 0) {
-            await new Promise(r => setTimeout(r, 500))
-            currentAllowance = await yo.getShareAllowance(vault.address, recipient)
-            if (currentAllowance >= shares) break
-            retries--
-          }
-
-          if (currentAllowance < shares) {
-            throw new Error('Approval confirmed but gateway still shows insufficient allowance. Please try again.')
-          }
-        }
-
-        // ── Step 2: Redeem via SDK (handles gateway encoding, slippage) ───
-        setState('redeeming')
-        const result = await yo.redeem({
+        // ── Step 1: Prepare redeem with auto-approval ─────────────────────
+        // SDK checks share allowance on-chain and returns:
+        //   [approveTx, redeemTx] if approval needed
+        //   [redeemTx]            if already approved
+        const txs = await yo.prepareRedeemWithApproval({
           vault: vault.address,
           shares,
+          owner: recipient,
           recipient,
           slippageBps: DEFAULT_SLIPPAGE_BPS,
         })
 
-        // ── Step 3: Wait for confirmation ─────────────────────────────────
-        setState('confirming')
-        const receipt = await yo.waitForRedeemReceipt(result.hash)
+        // ── Step 2: Send each transaction sequentially ────────────────────
+        let redeemHash: `0x${string}` | null = null
 
-        setTxHash(result.hash)
+        for (let i = 0; i < txs.length; i++) {
+          const tx = txs[i]
+          const isLast = i === txs.length - 1
+
+          if (!isLast) {
+            setState('approving')
+          } else {
+            setState('redeeming')
+          }
+
+          const hash = await walletClient.sendTransaction({
+            to: tx.to as `0x${string}`,
+            data: tx.data as `0x${string}`,
+            value: tx.value,
+            account: walletClient.account!,
+            chain: walletClient.chain,
+          })
+
+          await yo.waitForTransaction(hash)
+
+          if (isLast) {
+            redeemHash = hash
+          }
+        }
+
+        if (!redeemHash) {
+          throw new Error('No redeem transaction was sent')
+        }
+
+        // ── Step 3: Wait for redeem receipt ───────────────────────────────
+        setState('confirming')
+        const receipt = await yo.waitForRedeemReceipt(redeemHash)
+
+        setTxHash(redeemHash)
 
         if (receipt.instant) {
           void recordRedeem({
             wallet: recipient.toLowerCase(),
             vault,
             shares,
-            txHash: result.hash,
+            txHash: redeemHash,
           })
           setState('success')
         } else {

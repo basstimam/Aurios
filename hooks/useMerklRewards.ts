@@ -27,19 +27,30 @@ export function useMerklRewards() {
 // ── Claim Mutation ───────────────────────────────────────────────────────────
 
 export function useClaimMerklRewards() {
-  const { yo } = useYoClient()
+  const { yo, walletClient } = useYoClient()
   const queryClient = useQueryClient()
   const { address } = useAccount()
   const [error, setError] = useState<string | null>(null)
 
   const mutation = useMutation({
     mutationFn: async (chainRewards: MerklChainRewards) => {
-      if (!yo) throw new Error('YO client not initialized')
-      return await yo.claimMerklRewards(chainRewards)
+      if (!yo || !walletClient || !address) throw new Error('YO client not initialized')
+
+      const tx = yo.prepareClaimMerklRewards(address, chainRewards)
+
+      const hash = await walletClient.sendTransaction({
+        to: tx.to as `0x${string}`,
+        data: tx.data as `0x${string}`,
+        value: tx.value,
+        account: walletClient.account!,
+        chain: walletClient.chain,
+      })
+
+      await yo.waitForTransaction(hash)
+      return hash
     },
     onSuccess: () => {
       setError(null)
-      // Refetch rewards after successful claim
       queryClient.invalidateQueries({ queryKey: ['merklRewards', address] })
     },
     onError: (err: Error) => {
