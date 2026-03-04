@@ -55,7 +55,23 @@ export function useRedeem() {
         const allowance = await yo.getShareAllowance(vault.address, recipient)
 
         if (allowance < shares) {
-          await yo.approveMax(vault.address)
+          const approveResult = await yo.approveMax(vault.address)
+          await yo.waitForTransaction(approveResult.hash)
+
+          // Poll gateway allowance until it reflects the new approval
+          // RPC nodes can serve stale state — wait up to 5s
+          let retries = 10
+          let currentAllowance = allowance
+          while (retries > 0) {
+            await new Promise(r => setTimeout(r, 500))
+            currentAllowance = await yo.getShareAllowance(vault.address, recipient)
+            if (currentAllowance >= shares) break
+            retries--
+          }
+
+          if (currentAllowance < shares) {
+            throw new Error('Approval confirmed but gateway still shows insufficient allowance. Please try again.')
+          }
         }
 
         // ── Step 2: Redeem via SDK (handles gateway encoding, slippage) ───
