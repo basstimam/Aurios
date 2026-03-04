@@ -37,6 +37,11 @@ next-env.d.ts
 
 # dev logs
 dev_*.log
+dev-server.log
 nul
+
+# AI agent session files
+.sisyphus/
+.mind/
 
 .vercel
