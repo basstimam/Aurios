@@ -740,7 +740,7 @@ function MerklRewardsSection() {
 
 export default function DashboardPage() {
   const router = useRouter()
-
+  const { isConnected } = useAccount()
   return (
     <AppLayout>
       <motion.div
@@ -826,18 +826,20 @@ export default function DashboardPage() {
         </section>
 
         {/* ── Active Positions ──────────────────────────────────────────────── */}
-        <section>
-          <motion.h2
-            variants={fadeUp}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="font-space-grotesk text-text-primary text-xl font-bold mb-4"
-          >
-            Active Positions
-          </motion.h2>
-          <PositionsTable />
-        </section>
+        {isConnected && (
+          <section>
+            <motion.h2
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="font-space-grotesk text-text-primary text-xl font-bold mb-4"
+            >
+              Active Positions
+            </motion.h2>
+            <PositionsTable />
+          </section>
+        )}
 
         {/* ── Transaction History ──────────────────────────────────────────────────── */}
         <TxHistorySection />

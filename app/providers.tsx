@@ -1,13 +1,31 @@
 'use client'
 
-import { PrivyProvider } from '@privy-io/react-auth'
+import { PrivyProvider, usePrivy } from '@privy-io/react-auth'
 import { WagmiProvider } from '@privy-io/wagmi'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect, useRef } from 'react'
 import { base } from 'viem/chains'
 import { wagmiConfig } from '@/lib/wagmi'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { Toaster } from 'sonner'
+
+// Clears React Query cache when wallet disconnects to prevent stale data
+// showing after disconnect. Must be inside PrivyProvider + QueryClientProvider.
+function WalletCacheGuard({ children }: { children: React.ReactNode }) {
+  const { authenticated } = usePrivy()
+  const qc = useQueryClient()
+  const prevAuth = useRef(authenticated)
+
+  useEffect(() => {
+    // Only clear when transitioning from authenticated -> not authenticated
+    if (prevAuth.current === true && authenticated === false) {
+      qc.clear()
+    }
+    prevAuth.current = authenticated
+  }, [authenticated, qc])
+
+  return <>{children}</>
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -15,7 +33,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       queries: { staleTime: 60_000, retry: 2 },
     },
   }))
-
 
   return (
     <ThemeProvider>
@@ -37,7 +54,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       >
         <QueryClientProvider client={queryClient}>
           <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
-            {children}
+            <WalletCacheGuard>
+              {children}
+            </WalletCacheGuard>
             <Toaster
               position="bottom-right"
               toastOptions={{
