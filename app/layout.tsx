@@ -45,6 +45,9 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.svg',
   },
+  other: {
+    'base:app_id': '69a8521698f361fce59e32ca',
+  },
 }
 
 export const dynamic = 'force-dynamic'
