@@ -6,60 +6,12 @@ import { useAccount } from 'wagmi'
 import { VAULTS } from '@/lib/contracts/vaults'
 import type { VaultKey, VaultConfig } from '@/lib/contracts/vaults'
 import { supabase } from '@/lib/supabase'
-import { formatUnits, erc20Abi, maxUint256 } from 'viem'
-import { ADDRESSES } from '@/lib/contracts/addresses'
+import { formatUnits } from 'viem'
 
 type RedeemState = 'idle' | 'approving' | 'redeeming' | 'confirming' | 'success' | 'queued' | 'error'
 
 /** Default slippage in basis points (0.5%) */
 const DEFAULT_SLIPPAGE_BPS = 50
-
-const YO_GATEWAY_ADDRESS = ADDRESSES.yoGateway
-
-/**
- * Gateway ABI - redeem + getShareAllowance
- * The gateway has its own allowance tracking via getShareAllowance().
- * We use this instead of raw erc20.allowance() to match what the gateway checks internally.
- */
-const yoGatewayAbi = [
-  {
-    type: 'function' as const,
-    name: 'redeem' as const,
-    stateMutability: 'nonpayable' as const,
-    inputs: [
-      { name: 'yoVault', type: 'address' as const },
-      { name: 'shares', type: 'uint256' as const },
-      { name: 'minAssetsOut', type: 'uint256' as const },
-      { name: 'receiver', type: 'address' as const },
-      { name: 'partnerId', type: 'uint32' as const },
-    ],
-    outputs: [{ name: 'assetsOrRequestId', type: 'uint256' as const }],
-  },
-  {
-    type: 'function' as const,
-    name: 'getShareAllowance' as const,
-    stateMutability: 'view' as const,
-    inputs: [
-      { name: 'yoVault', type: 'address' as const },
-      { name: 'owner', type: 'address' as const },
-    ],
-    outputs: [{ type: 'uint256' as const }],
-  },
-  {
-    type: 'function' as const,
-    name: 'quotePreviewRedeem' as const,
-    stateMutability: 'view' as const,
-    inputs: [
-      { name: 'yoVault', type: 'address' as const },
-      { name: 'shares', type: 'uint256' as const },
-    ],
-    outputs: [{ type: 'uint256' as const }],
-  },
-] as const
-
-function applySlippage(amount: bigint, bps: number): bigint {
-  return amount - (amount * BigInt(bps)) / BigInt(10000)
-}
 
 export function useRedeem() {
   const [state, setState] = useState<RedeemState>('idle')
@@ -99,103 +51,39 @@ export function useRedeem() {
 
         const shares = parseTokenAmount(sharesString, vault.decimals)
 
-        // ── Step 1: Check allowance via gateway.getShareAllowance() ──────────
-        // This is the authoritative check - matches what gateway reads internally.
-        const gatewayAllowance = await yo.publicClient.readContract({
-          address: YO_GATEWAY_ADDRESS,
-          abi: yoGatewayAbi,
-          functionName: 'getShareAllowance',
-          args: [vault.address, recipient],
-        })
+        // ── Step 1: Check share allowance and approve if needed ────────────
+        const allowance = await yo.getShareAllowance(vault.address, recipient)
 
-        if (gatewayAllowance < shares) {
-          const approveTx = await walletClient.writeContract({
-            address: vault.address,
-            abi: erc20Abi,
-            functionName: 'approve',
-            args: [YO_GATEWAY_ADDRESS, maxUint256],
-            account: walletClient.account!,
-            chain: walletClient.chain,
-          })
-          await yo.publicClient.waitForTransactionReceipt({ hash: approveTx })
-
-          // Poll gateway allowance until it reflects the new approval
-          // RPC nodes can have stale state - wait up to 5s
-          let retries = 10
-          let newAllowance = gatewayAllowance
-          while (retries > 0) {
-            await new Promise(r => setTimeout(r, 500))
-            newAllowance = await yo.publicClient.readContract({
-              address: YO_GATEWAY_ADDRESS,
-              abi: yoGatewayAbi,
-              functionName: 'getShareAllowance',
-              args: [vault.address, recipient],
-            })
-            if (newAllowance >= shares) break
-            retries--
-          }
-
-          if (newAllowance < shares) {
-            throw new Error('Approval confirmed but gateway still shows insufficient allowance. Please try again.')
-          }
+        if (allowance < shares) {
+          await yo.approveMax(vault.address)
         }
 
+        // ── Step 2: Redeem via SDK (handles gateway encoding, slippage) ───
         setState('redeeming')
-
-        // ── Step 2: Quote expected assets out (via gateway view function) ───
-        const expectedAssets = await yo.publicClient.readContract({
-          address: YO_GATEWAY_ADDRESS,
-          abi: yoGatewayAbi,
-          functionName: 'quotePreviewRedeem',
-          args: [vault.address, shares],
-        })
-        const minAssetsOut = applySlippage(expectedAssets, DEFAULT_SLIPPAGE_BPS)
-
-        // ── Step 3: Call gateway.redeem() directly (skip simulateContract) ─
-        const hash = await walletClient.writeContract({
-          address: YO_GATEWAY_ADDRESS,
-          abi: yoGatewayAbi,
-          functionName: 'redeem',
-          args: [vault.address, shares, minAssetsOut, recipient, 9999],
-          account: walletClient.account!,
-          chain: walletClient.chain,
+        const result = await yo.redeem({
+          vault: vault.address,
+          shares,
+          recipient,
+          slippageBps: DEFAULT_SLIPPAGE_BPS,
         })
 
-        // ── Step 4: Wait for confirmation ──────────────────────────────────
+        // ── Step 3: Wait for confirmation ─────────────────────────────────
         setState('confirming')
+        const receipt = await yo.waitForRedeemReceipt(result.hash)
 
-        let isInstant = false
-        try {
-          const redeemReceipt = await yo.waitForRedeemReceipt(hash)
-          isInstant = redeemReceipt.instant
-          if (!isInstant) {
-            setRequestId(String(redeemReceipt.assetsOrRequestId))
-          }
-        } catch {
-          // SDK couldn't decode YoGatewayRedeem event — tx may still have succeeded.
-          // Happens when SDK ABI doesn't match the deployed gateway contract.
-          // Fall back to raw receipt: if TX succeeded, treat as instant redeem
-          // because the gateway.redeem() returns assets directly for instant path.
-          const rawReceipt = await yo.publicClient.getTransactionReceipt({ hash })
-          if (rawReceipt.status !== 'success') {
-            throw new Error('Redeem transaction reverted on-chain')
-          }
-          // TX succeeded but SDK can't parse event — assets were received instantly.
-          isInstant = true
-        }
+        setTxHash(result.hash)
 
-        setTxHash(hash)
-
-        if (isInstant) {
+        if (receipt.instant) {
           void recordRedeem({
-            wallet: walletClient.account!.address.toLowerCase(),
+            wallet: recipient.toLowerCase(),
             vault,
-            shares: parseTokenAmount(sharesString, vault.decimals),
-            txHash: hash,
+            shares,
+            txHash: result.hash,
           })
           setState('success')
         } else {
           setIsQueued(true)
+          setRequestId(String(receipt.assetsOrRequestId))
           setState('queued')
         }
       } catch (err: unknown) {
