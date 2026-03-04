@@ -164,31 +164,29 @@ export function useRedeem() {
         // ── Step 4: Wait for confirmation ──────────────────────────────────
         setState('confirming')
 
-        let redeemReceipt: Awaited<ReturnType<typeof yo.waitForRedeemReceipt>> | null = null
+        let isInstant = false
         try {
-          redeemReceipt = await yo.waitForRedeemReceipt(hash)
-        } catch (receiptErr: unknown) {
-          // SDK couldn't decode YoGatewayRedeem event — tx may still have succeeded.
-          // Happens when gateway emits queued-path event or SDK ABI doesn't match contract.
-          const rawReceipt = await yo.publicClient.getTransactionReceipt({ hash })
-          if (rawReceipt.status === 'success') {
-            // Treat as queued: shares were burned, assets arrive later via pending redemptions.
-            setIsQueued(true)
-            setTxHash(hash)
-            setState('queued')
-            return
+          const redeemReceipt = await yo.waitForRedeemReceipt(hash)
+          isInstant = redeemReceipt.instant
+          if (!isInstant) {
+            setRequestId(String(redeemReceipt.assetsOrRequestId))
           }
-          // TX actually reverted — rethrow original error.
-          throw receiptErr
+        } catch {
+          // SDK couldn't decode YoGatewayRedeem event — tx may still have succeeded.
+          // Happens when SDK ABI doesn't match the deployed gateway contract.
+          // Fall back to raw receipt: if TX succeeded, treat as instant redeem
+          // because the gateway.redeem() returns assets directly for instant path.
+          const rawReceipt = await yo.publicClient.getTransactionReceipt({ hash })
+          if (rawReceipt.status !== 'success') {
+            throw new Error('Redeem transaction reverted on-chain')
+          }
+          // TX succeeded but SDK can't parse event — assets were received instantly.
+          isInstant = true
         }
 
         setTxHash(hash)
 
-        if (!redeemReceipt.instant) {
-          setIsQueued(true)
-          setRequestId(String(redeemReceipt.assetsOrRequestId))
-          setState('queued')
-        } else {
+        if (isInstant) {
           void recordRedeem({
             wallet: walletClient.account!.address.toLowerCase(),
             vault,
@@ -196,6 +194,9 @@ export function useRedeem() {
             txHash: hash,
           })
           setState('success')
+        } else {
+          setIsQueued(true)
+          setState('queued')
         }
       } catch (err: unknown) {
         const message =
