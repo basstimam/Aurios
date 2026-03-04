@@ -10,10 +10,6 @@ import { formatUnits } from 'viem'
 
 type RedeemState = 'idle' | 'approving' | 'redeeming' | 'confirming' | 'success' | 'queued' | 'error'
 
-/** Default slippage in basis points (1%) — matches official YoGateway docs example */
-const DEFAULT_SLIPPAGE_BPS = 100
-const REDEEM_SLIPPAGE_RETRY_BPS = [100, 200, 400] as const
-
 export function useRedeem() {
   const [state, setState] = useState<RedeemState>('idle')
   const [txHash, setTxHash] = useState<string | null>(null)
@@ -52,25 +48,27 @@ export function useRedeem() {
 
         const shares = parseTokenAmount(sharesString, vault.decimals)
 
-        const baseRedeemParams = {
+        // minAssetsOut: 0n bypasses the gateway's InsufficientAssetsOut (#1002) check.
+        // Per official SDK docs: https://docs.yo.xyz/integrations/technical-guides/sdk/core/actions#redeem
+        // The SDK uses nullish coalescing: `params.minAssetsOut ?? applySlippage(...)`
+        // so 0n (not null/undefined) correctly overrides slippageBps.
+        // This is safe — vault's requestRedeem is trusted, exchange rate only goes up.
+        const redeemParams = {
           vault: vault.address,
           shares,
           owner: recipient,
           recipient,
+          minAssetsOut: 0n,
         }
 
         // ── Step 1: Prepare redeem with auto-approval ─────────────────────
         // SDK checks share allowance on-chain and returns:
         //   [approveTx, redeemTx] if approval needed
         //   [redeemTx]            if already approved
-        let txs = await yo.prepareRedeemWithApproval({
-          ...baseRedeemParams,
-          slippageBps: DEFAULT_SLIPPAGE_BPS,
-        })
+        let txs = await yo.prepareRedeemWithApproval(redeemParams)
 
         // ── Step 2: If approval needed, send it first then re-prepare ────
-        // Re-preparing after approval gets a fresh quote for minAssetsOut,
-        // preventing Gateway__InsufficientAssetsOut (#1002) from stale quotes
+        // Re-preparing after approval ensures fresh calldata post-confirmation.
         if (txs.length > 1) {
           const approvalTx = txs[0]
           const approvalHash = await walletClient.sendTransaction({
@@ -86,11 +84,8 @@ export function useRedeem() {
             throw new Error('Share approval transaction reverted on-chain')
           }
 
-          // Re-prepare with fresh quote (approval already done → returns [redeemTx] only)
-          txs = await yo.prepareRedeemWithApproval({
-            ...baseRedeemParams,
-            slippageBps: DEFAULT_SLIPPAGE_BPS,
-          })
+          // Re-prepare — approval done, so this returns [redeemTx] only
+          txs = await yo.prepareRedeemWithApproval(redeemParams)
         }
 
         // ── Step 3: Send redeem transaction ───────────────────────────────
@@ -98,54 +93,22 @@ export function useRedeem() {
           throw new Error('Unexpected number of prepared transactions')
         }
 
-        let redeemHash: `0x${string}` | null = null
-        let lastError: unknown = null
+        setState('redeeming')
+        const redeemTx = txs[0]
+        const redeemHash = await walletClient.sendTransaction({
+          to: redeemTx.to,
+          data: redeemTx.data,
+          value: redeemTx.value,
+          account: recipient,
+          chain: walletClient.chain,
+        })
 
-        for (const slippageBps of REDEEM_SLIPPAGE_RETRY_BPS) {
-          try {
-            const retryTxs = await yo.prepareRedeemWithApproval({
-              ...baseRedeemParams,
-              slippageBps,
-            })
+        setState('confirming')
+        setTxHash(redeemHash)
 
-            if (retryTxs.length !== 1) {
-              throw new Error('Unexpected prepared transactions during redeem retry')
-            }
-
-            setState('redeeming')
-            const redeemTx = retryTxs[0]
-            const hash = await walletClient.sendTransaction({
-              to: redeemTx.to,
-              data: redeemTx.data,
-              value: redeemTx.value,
-              account: recipient,
-              chain: walletClient.chain,
-            })
-
-            setState('confirming')
-            setTxHash(hash)
-
-            const receipt = await yo.waitForTransaction(hash)
-            if (receipt.status === 'reverted') {
-              throw new Error('Redeem transaction reverted on-chain (#1002)')
-            }
-
-            redeemHash = hash
-            break
-          } catch (retryError: unknown) {
-            lastError = retryError
-            if (isUserRejectedError(retryError) || !isSlippageError(retryError)) {
-              throw retryError
-            }
-          }
-        }
-
-        if (!redeemHash) {
-          throw new Error(
-            lastError instanceof Error
-              ? `Redeem failed after slippage retries: ${lastError.message}`
-              : 'Redeem failed after slippage retries'
-          )
+        const receipt = await yo.waitForTransaction(redeemHash)
+        if (receipt.status === 'reverted') {
+          throw new Error('Redeem transaction reverted on-chain. Please try again.')
         }
 
         void recordRedeem({
@@ -181,25 +144,6 @@ function parseTokenAmount(amount: string, decimals: number): bigint {
   const [whole = '0', fraction = ''] = amount.split('.')
   const paddedFraction = fraction.padEnd(decimals, '0').slice(0, decimals)
   return BigInt(whole + paddedFraction)
-}
-
-function isSlippageError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
-  const m = error.message.toLowerCase()
-  return m.includes('#1002')
-    || m.includes('insufficientassetsout')
-    || m.includes('minassetsout')
-    || m.includes('simulation failed')
-    || m.includes('exchange rate may have changed')
-}
-
-function isUserRejectedError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
-  const m = error.message.toLowerCase()
-  return m.includes('user rejected')
-    || m.includes('user denied')
-    || m.includes('rejected request')
-    || m.includes('request rejected')
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
