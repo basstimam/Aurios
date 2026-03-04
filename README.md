@@ -8,7 +8,7 @@ Aurios enables DAO treasuries to earn yield on idle assets (USDC, WETH, cbBTC) t
 
 ## Live Demo
 
-> **Production**: [aurios.vercel.app](https://smelt-gamma.vercel.app)
+> **Production**: [aurios.xyz](https://aurios.xyz)
 > **GitHub**: [github.com/basstimam/Aurios](https://github.com/basstimam/Aurios)
 
 ## YO SDK Integration
@@ -32,6 +32,7 @@ Aurios integrates **15 YO SDK methods** for real onchain interactions, zero mock
 | **Analytics** | `getVaultYieldHistory` | 30-day APY chart data |
 | | `getVaultTvlHistory` | Historical TVL chart data |
 | **REST API** | `GET /api/v1/vault/base/{addr}` | Live APY (1d/7d/30d) + TVL snapshots |
+| **Merkl** | `getClaimableRewards` | Fetch claimable $YO reward tokens per wallet |
 
 ### Vault Addresses (Base Mainnet)
 
@@ -40,6 +41,7 @@ Aurios integrates **15 YO SDK methods** for real onchain interactions, zero mock
 | yoUSD | `0x0000000f2eb9f69274678c76222b35eec7588a65` | USDC (6 decimals) |
 | yoETH | `0x3a43aec53490cb9fa922847385d82fe25d0e9de7` | WETH (18 decimals) |
 | yoBTC | `0xbcbc8cb4d1e8ed048a6276a5e94a3e952660bcbc` | cbBTC (8 decimals) |
+| yoEUR | `0x50c749ae210d3977adc824ae11f3c7fd10c871e9` | EURC (6 decimals) |
 
 ---
 
@@ -53,14 +55,19 @@ Every deposit requires explicit acknowledgment of smart contract risks, withdraw
 
 ### Real-Time Data
 All numbers in the app come from live sources:
-- **APY**: YO REST API (refreshed every 5 minutes)
+- **APY**: YO REST API (refreshed every 5 minutes) — native yield + Merkl reward APY
 - **TVL**: YO REST API + on-chain aggregation
 - **User positions**: YO SDK `getUserPosition` (refreshed every 30 seconds)
 - **Share previews**: `quotePreviewDeposit` / `quotePreviewRedeem` (live)
 - **Transaction history**: Merged on-chain (SDK) + off-chain (Supabase) with dedup
+- **Merkl rewards**: Live claimable $YO reward amounts per vault per wallet
 
 ### DAO Team Dashboard
-Shared treasury view for the whole team - members, roles, aggregated vault positions, and shared transaction history.
+Shared treasury view for the whole team — members, roles, aggregated vault positions, and shared transaction history.
+
+### Merkl Rewards
+Every vault earns additional $YO token rewards on top of native yield. The `/rewards` page shows live reward APY per vault, claimable amounts, and links to claim on Merkl's dashboard.
+
 
 ---
 
@@ -121,6 +128,7 @@ aurios/
 │   │   └── success/page.tsx      # Confirmation + BaseScan link
 │   ├── redeem/page.tsx           # Redemption flow
 │   ├── team/page.tsx             # Team management
+│   ├── rewards/page.tsx          # Merkl rewards claim + info
 │   └── docs/page.tsx             # Documentation
 ├── components/                   # Reusable UI components
 │   ├── Navbar.tsx                # Navigation + wallet button + mobile menu
@@ -144,6 +152,7 @@ aurios/
 │   ├── useVaultTvlHistory.ts     # TVL chart data
 │   ├── useVaultPaused.ts         # Vault paused guard
 │   ├── useTreasuryPositions.ts   # Aggregated team treasury positions
+│   ├── useMerklRewards.ts        # Merkl reward APY + claimable rewards
 │   └── usePendingRedemptions.ts  # Queued redemption tracking
 ├── lib/
 │   ├── wagmi.ts                  # Wagmi + Privy config
@@ -193,8 +202,20 @@ aurios/
 - DAO team management with multi-member support
 - Yield + TVL charts for data-driven decisions
 - Merged on-chain + off-chain transaction history
+- 4-vault support including yoEUR (EURC), expanding to European treasury holders
+- Merkl rewards page: live $YO reward APY + claimable amount tracking
+- Smart Vault Advisor: AI-guided vault selection (unique to Aurios)
+- DAO team management with multi-member support
+- Yield + TVL charts for data-driven decisions
+- Merged on-chain + off-chain transaction history
 
 ### Quality of Integration (20%)
+- 15+ YO SDK methods live on Base mainnet
+- Real deposit + redeem flows with approval and confirmation
+- Smart allowance polling for RPC sync delays
+- Live APY from YO REST API — native yield and Merkl reward APY displayed separately
+- Vault pause detection prevents deposits to paused vaults
+- Merkl `getClaimableRewards` integration for $YO reward tracking
 - 15 YO SDK methods live on Base mainnet
 - Real deposit + redeem flows with approval and confirmation
 - Smart allowance polling for RPC sync delays
