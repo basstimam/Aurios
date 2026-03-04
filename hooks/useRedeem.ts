@@ -163,13 +163,30 @@ export function useRedeem() {
 
         // ── Step 4: Wait for confirmation ──────────────────────────────────
         setState('confirming')
-        const receipt = await yo.waitForRedeemReceipt(hash)
+
+        let redeemReceipt: Awaited<ReturnType<typeof yo.waitForRedeemReceipt>> | null = null
+        try {
+          redeemReceipt = await yo.waitForRedeemReceipt(hash)
+        } catch (receiptErr: unknown) {
+          // SDK couldn't decode YoGatewayRedeem event — tx may still have succeeded.
+          // Happens when gateway emits queued-path event or SDK ABI doesn't match contract.
+          const rawReceipt = await yo.publicClient.getTransactionReceipt({ hash })
+          if (rawReceipt.status === 'success') {
+            // Treat as queued: shares were burned, assets arrive later via pending redemptions.
+            setIsQueued(true)
+            setTxHash(hash)
+            setState('queued')
+            return
+          }
+          // TX actually reverted — rethrow original error.
+          throw receiptErr
+        }
 
         setTxHash(hash)
 
-        if (!receipt.instant) {
+        if (!redeemReceipt.instant) {
           setIsQueued(true)
-          setRequestId(String(receipt.assetsOrRequestId))
+          setRequestId(String(redeemReceipt.assetsOrRequestId))
           setState('queued')
         } else {
           void recordRedeem({
