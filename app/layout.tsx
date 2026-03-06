@@ -27,7 +27,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Aurios | DeFi Savings for DAO Treasuries",
   description: "Institutional-grade savings for DAO treasuries. Deploy treasury funds into audited YO Protocol vaults. Earn real yield. Stay in control.",
-  metadataBase: new URL('https://aurios.finance'),
+  metadataBase: new URL('https://aurios.xyz'),
   openGraph: {
     title: 'Aurios | DeFi Savings for DAO Treasuries',
     description: 'Institutional-grade savings for DAO treasuries. Earn real yield on YO Protocol vaults.',
